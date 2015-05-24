@@ -1,3 +1,5 @@
+// Package quic provides a portable interface for network I/O with QUIC, a multiplexed stream transport over UDP.
+// See https://www.chromium.org/quic
 package quic
 
 import "net"
