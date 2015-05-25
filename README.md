@@ -23,7 +23,9 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
         * [Close](#sessionclose)
         * [GoAway](#sessiongoaway)
         * [Reset](#sessionionreset)
-        * [Public Reset](#sessionpublicreset)
+    * [Keep Alive](#sessionkeepalive)
+        * [Timeout](#sessiontimeout)
+        * [Ping](#sessionping)
 * [Stream management](#streammngt)
     * [Creation](#streamcreation)
     * [Read](#streamread)
@@ -31,46 +33,92 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
         * [Write (standard)](#standardwrite)
         * [Write with FEC](#fecwrite)
         * [Write with Duplicate QUIC packet](*duplicatewrite)
-    * [Close](#streamclose)
+    * [Close (half)](#streamclose)
     * [Reset](#streamreset)
+    * [Priority](#streampriority)
 
 
 ## <A name="quicsessionmngt"></A> QUIC Session management
 
+TBD
+
 ### <A name="sessioninitialization"></A> Initialization
+
+TBD
 
 #### <A name="clientside"></A> Client side
 
+TBD
+
 #### <A name="serverside"></A> Server side
+
+TBD
 
 ### <A name="sessiontermination"></A> Termination
 
-#### <A name="connectionclose"></A> Close
+TBD
 
-#### <A name="publicreset"></A> Reset
+#### <A name="sessionclose"></A> Close
+
+TBD
+
+#### <A name="sessiongoaway"></A> GoAway
+
+TBD
+
+#### <A name="sessionreset"></A> Reset
+
+TBD
+
+### <A name="sessionkeepalive"></A> Keep Alive
+
+TBD
+
+#### <A name="sessiontimeout"></A> Timeout
+
+TBD
+
+#### <A name="sessionping"></A> Ping
+
+TBD
 
 ## <A name="streammngt"></A> Stream management
 
+TBD
+
 ### <A name="streamcreation"></A> Creation
+
+TBD
 
 ### <A name="streamread"></A> Read
 
+TBD
+
 ### <A name="streamwrite"></A> Write
+
+TBD
 
 #### <A name="classicwrite"></A> Write (standard)
 
+TBD
+
 #### <A name="fecwrite"></A> Write with Forward Error Correction
 
-#### <A name="duplicatewrite"></A> Write with Duplicate QUIC packet
+TBD
 
-### <A name="streamclose"></A> Close
+#### <A name="duplicatewrite"></A> Write with Duplicate QUIC packets
+
+TBD
+
+### <A name="streamclose"></A> Close (half)
+
+TBD
 
 ### <A name="streamreset"></A> Reset
 
-There are 4 ways that streams can be terminated
+TBD
 
-* Normal termination: STREAM_FRAME received with FIN bit
-* Abrupt termination: RESET_FRAME received
-* QUIC connection teardown: CONNECTION_CLOSE_FRAME received
-* Implicit timeout: (default idle timeout is 10 minutes)
+### <A name="streampriority"></A> Priority
+
+TBD
 
