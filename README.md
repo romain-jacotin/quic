@@ -7,14 +7,17 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
 **For official Google information about QUIC protocol, please consult the following website:**
 
 * Official QUIC information at chromium.org :
-    * https://www.chromium.org/quic
+    * [https://www.chromium.org/quic](https://www.chromium.org/quic)
+* Chromium QUIC source code:
+    * [https://code.google.com/p/chromium/codesearch#chromium/src/net/quic/](https://code.google.com/p/chromium/codesearch#chromium/src/net/quic/)
 * QUIC Forum:
-    * https://groups.google.com/a/chromium.org/forum/#!forum/proto-quic
+    * [https://groups.google.com/a/chromium.org/forum/#!forum/proto-quic](https://groups.google.com/a/chromium.org/forum/#!forum/proto-quic)
 
 ----------------------
 
 ## Table of contents:
 
+* [Introduction](#introduction)
 * [QUIC Session management](#quicsessionmngt)
     * [Initialization](#sessioninitialization)
         * [Client side](#clientside)
@@ -22,21 +25,25 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
     * [Termination](#sessiontermination)
         * [Close](#sessionclose)
         * [GoAway](#sessiongoaway)
-        * [Reset](#sessionionreset)
+        * [Reset](#sessionreset)
     * [Keep Alive](#sessionkeepalive)
         * [Timeout](#sessiontimeout)
         * [Ping](#sessionping)
+    * [Pacing](#pacing)
+        * [Auto-pacing](#autopacing)
+        * [Minimum pacing](#minimumpacing)
 * [Stream management](#streammngt)
     * [Creation](#streamcreation)
     * [Read](#streamread)
     * [Write](#streamwrite)
         * [Write (standard)](#standardwrite)
         * [Write with FEC](#fecwrite)
-        * [Write with Duplicate QUIC packet](*duplicatewrite)
+        * [Write with Duplicate QUIC packets](*duplicatewrite)
     * [Close (half)](#streamclose)
     * [Reset](#streamreset)
-    * [Priority](#streampriority)
+* [ANNEX: Extracts from RFC793 - TCP](./tcp.md)
 
+## <A name="introduction"></A> Introduction
 
 ## <A name="quicsessionmngt"></A> QUIC Session management
 
@@ -67,6 +74,18 @@ TBD
 TBD
 
 #### <A name="sessionreset"></A> Reset
+
+TBD
+
+## <A name="pacing"></A>Pacing
+
+TBD
+
+### <A name="autopacing"></A> Auto-pacing
+
+TBD
+
+### <A name="minimumpacing"></A> Minimum pacing
 
 TBD
 
