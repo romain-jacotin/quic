@@ -1,6 +1,8 @@
-# TRANSMISSION CONTROL PROTOCOL
+# Transmission Control Protocol
 
-Extracts taken from RFC793: [https://tools.ietf.org/html/rfc793](https://tools.ietf.org/html/rfc793)
+Extracts from RFC793: [https://tools.ietf.org/html/rfc793](https://tools.ietf.org/html/rfc793)
+
+---------------------
 
 ## Table of Content
 
@@ -51,28 +53,28 @@ __TCP Header Format__
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ 
 ```
 
-* Source Port: 16 bits
+* __Source Port__: 16 bits
     * The source port number.
-* Destination Port: 16 bits
+* __Destination Port__: 16 bits
     * The destination port number.
-* Sequence Number: 32 bits
+* __Sequence Number__: 32 bits
     * The sequence number of the first data octet in this segment (except when SYN is present). If SYN is present the sequence number is the initial sequence number (ISN) and the first data octet is ISN+1.
-* Acknowledgment Number: 32 bits
+* __Acknowledgment Number__: 32 bits
     * If the ACK control bit is set this field contains the value of the next sequence number the sender of the segment is expecting to receive. Once a connection is established this is always sent.
-* Data Offset: 4 bits
+* __Data Offset__: 4 bits
     * The number of 32 bit words in the TCP Header. This indicates where the data begins. The TCP header (even one including options) is an integral number of 32 bits long.
-* Reserved: 6 bits
+* __Reserved__: 6 bits
     * Reserved for future use. Must be zero.
-* Control Bits: 6 bits (from left to right):
-    * URG: Urgent Pointer field significant
-    * ACK: Acknowledgment field significant
-    * PSH: Push Function
-    * RST: Reset the connection
-    * SYN: Synchronize sequence numbers
-    * FIN: No more data from sender
- * Window: 16 bits
+* __Control Bits__: 6 bits (from left to right):
+    * __URG__: Urgent Pointer field significant
+    * __ACK__: Acknowledgment field significant
+    * __PSH__: Push Function
+    * __RST__: Reset the connection
+    * __SYN__: Synchronize sequence numbers
+    * __FIN__: No more data from sender
+* __Window__: 16 bits
     * The number of data octets beginning with the one indicated in the acknowledgment field which the sender of this segment is willing to accept.
-* Checksum: 16 bits
+* __Checksum__: 16 bits
     * The checksum field is the 16 bit one’s complement of the one’s complement sum of all 16 bit words in the header and text. If a segment contains an odd number of header and text octets to be checksummed, the last octet is padded on the right with zeros to form a 16 bit word for checksum purposes. The pad is not transmitted as part of the segment. While computing the checksum, the checksum field itself is replaced with zeros.
 
 The checksum also covers a 96 bit pseudo header conceptually
@@ -96,9 +98,9 @@ The TCP Length is the TCP header length plus the data length in
  computed), and it does not count the 12 octets of the pseudo
  header.
 
-* Urgent Pointer: 16 bits
+* __Urgent Pointer__: 16 bits
     * This field communicates the current value of the urgent pointer as a positive offset from the sequence number in this segment. The urgent pointer points to the sequence number of the octet following the urgent data. This field is only be interpreted in segments with the URG control bit set.
-* Options: variable
+* __Options__: variable
     * Options may occupy space at the end of the TCP header and are a multiple of 8 bits in length. All options are included in the checksum. An option may begin on any octet boundary. There are two cases for the format of an option:
         * Case 1: A single octet of option-kind.
         * Case 2: An octet of option-kind, an octet of option-length, and the actual option-data octets.
@@ -158,13 +160,13 @@ __Maximum Segment Size__
 
 ### <A name="sendsequencevars"></A> Send Sequence Variables
 
-* SND.UNA - send unacknowledged
-* SND.NXT - send next
-* SND.WND - send window
-* SND.UP - send urgent pointer
-* SND.WL1 - segment sequence number used for last window update
-* SND.WL2 - segment acknowledgment number used for last window update
-* ISS - initial send sequence number
+* __SND.UNA__ = send unacknowledged
+* __SND.NXT__ = send next
+* __SND.WND__ = send window
+* __SND.UP__ = send urgent pointer
+* __SND.WL1__ = segment sequence number used for last window update
+* __SND.WL2__ = segment acknowledgment number used for last window update
+* __ISS__ = initial send sequence number
 
 __Send Sequence Space__
 
@@ -182,10 +184,10 @@ __Send Sequence Space__
 
 ### <A name="receivesequencevars"></A> Receive Sequence Variables
 
-* RCV.NXT - receive next
-* RCV.WND - receive window
-* RCV.UP - receive urgent pointer
-* IRS - initial receive sequence number
+* __RCV.NXT__ = receive next
+* __RCV.WND__ = receive window
+* __RCV.UP__ = receive urgent pointer
+* __IRS__ = initial receive sequence number
 
 __Receive Sequence Space__
 
@@ -202,46 +204,46 @@ __Receive Sequence Space__
 
 ### <A name="currentsegmentvars"></A> Current Segment Variables
 
-* SEG.SEQ - segment sequence number
-* SEG.ACK - segment acknowledgment number
-* SEG.LEN - segment length
-* SEG.WND - segment window
-* SEG.UP - segment urgent pointer
-* SEG.PRC - segment precedence value
+* __SEG.SEQ__ = segment sequence number
+* __SEG.ACK__ = segment acknowledgment number
+* __SEG.LEN__ = segment length
+* __SEG.WND__ = segment window
+* __SEG.UP__ = segment urgent pointer
+* __SEG.PRC__ = segment precedence value
 
 ## <A name="sequencenumber"></A> Sequence number
 
 In response to sending data the TCP will receive acknowledgments.
 The following comparisons are needed to process the acknowledgments.
 
-* SND.UNA = oldest unacknowledged sequence number
-* SND.NXT = next sequence number to be sent
-* SEG.ACK = acknowledgment from the receiving TCP (next sequence number expected by the receiving TCP)
-* SEG.SEQ = first sequence number of a segment
-* SEG.LEN = the number of octets occupied by the data in the segment (counting SYN and FIN)
-* SEG.SEQ + SEG.LEN - 1 = last sequence number of a segment
+* __SND.UNA__ = oldest unacknowledged sequence number
+* __SND.NXT__ = next sequence number to be sent
+* __SEG.ACK__ = acknowledgment from the receiving TCP (next sequence number expected by the receiving TCP)
+* __SEG.SEQ__ = first sequence number of a segment
+* __SEG.LEN__ = the number of octets occupied by the data in the segment (counting SYN and FIN)
+* __SEG.SEQ__ + __SEG.LEN__ - 1 = last sequence number of a segment
 
 A new acknowledgment (called an "acceptable ack"), is one for which the inequality below holds:
 
-* SND.UNA < SEG.ACK =< SND.NXT
+* __SND.UNA__ < __SEG.ACK__ =< __SND.NXT__
 
 A segment on the retransmission queue is fully acknowledged if the sum of its sequence number and length
 is less or equal than the acknowledgment value in the incoming segment.
 
 When data is received the following comparisons are needed:
 
-* RCV.NXT = next sequence number expected on an incoming segments, and is the left or lower edge of the receive window
-* RCV.NXT+RCV.WND-1 = last sequence number expected on an incoming segment, and is the right or upper edge of the receive window
-* SEG.SEQ = first sequence number occupied by the incoming segment
-* SEG.SEQ+SEG.LEN-1 = last sequence number occupied by the incoming segment
+* __RCV.NXT__ = next sequence number expected on an incoming segments, and is the left or lower edge of the receive window
+* __RCV.NXT__ + __RCV.WND__ - 1 = last sequence number expected on an incoming segment, and is the right or upper edge of the receive window
+* __SEG.SEQ__ = first sequence number occupied by the incoming segment
+* __SEG.SEQ__ + __SEG.LEN__ - 1 = last sequence number occupied by the incoming segment
  
 A segment is judged to occupy a portion of valid receive sequence space if
 
-* RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+* __RCV.NXT__ =< __SEG.SEQ__ < __RCV.NXT__ + __RCV.WND__
 
  or
 
-* RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
+* __RCV.NXT__ =< __SEG.SEQ__ + __SEG.LEN__ - 1 < __RCV.NXT__ + __RCV.WND__
 
 The first part of this test checks to see if the beginning of the
 segment falls in the window, the second part of the test checks to see
@@ -314,12 +316,12 @@ from the other side. Each side must also receive the other side’s
 initial sequence number and send a confirming acknowledgment.
 
 1. A --> B
-    * SYN my sequence number is X
+    * __SYN__ my sequence number is X
 2. A <-- B
-    * ACK your sequence number is X
-    * SYN my sequence number is Y
-4. A --> B
-    * ACK your sequence number is Y
+    * __ACK__ your sequence number is X
+    * __SYN__ my sequence number is Y
+3. A --> B
+    * __ACK__ your sequence number is Y
 
 This is called the three way (or three message) handshake.
 
@@ -329,8 +331,7 @@ mechanisms for picking the ISN’s. The receiver of the first SYN has
 no way of knowing whether the segment was an old delayed one or not,
 unless it remembers the last sequence number used on the connection
 (which is not always possible), and so it must ask the sender to
-verify this SYN. The three way handshake and the advantages of a
-clock-driven scheme are discussed in [3].
+verify this SYN.
 
 ## <A name="datacommunication"></A> Data Communication
 
@@ -343,17 +344,17 @@ Once the connection is established data is communicated by the
  certain tests on the sequence and acknowledgment numbers in the
  segments to verify their acceptability.
 
-* The sender of data keeps track of the next sequence number to use in the variable SND.NXT.
-* The receiver of data keeps track of the next sequence number to expect in the variable RCV.NXT.
-* The sender of data keeps track of the oldest unacknowledged sequence number in the variable SND.UNA.
-* If the data flow is momentarily idle and all data sent has been acknowledged then the three variables will be equal.
-* When the sender creates a segment and transmits it the sender advances SND.NXT.
-* When the receiver accepts a segment it advances RCV.NXT and sends an acknowledgment.
-* When the data sender receives an acknowledgment it advances SND.UNA.
-* The extent to which the values of these variables differ is a measure of the delay in the communication.
-* The amount by which the variables are advanced is the length of the data in the segment.
-* Note that once in the ESTABLISHED state all segments must carry current acknowledgment information.
-* The CLOSE user call implies a push function, as does the FIN control flag in an incoming segment.
+* The sender of data keeps track of the next sequence number to use in the variable __SND.NXT__
+* The receiver of data keeps track of the next sequence number to expect in the variable __RCV.NXT__
+* The sender of data keeps track of the oldest unacknowledged sequence number in the variable __SND.UNA__
+* If the data flow is momentarily idle and all data sent has been acknowledged then the three variables will be equal
+* When the sender creates a segment and transmits it the sender advances __SND.NXT__
+* When the receiver accepts a segment it advances __RCV.NXT__ and sends an acknowledgment
+* When the data sender receives an acknowledgment it advances __SND.UNA__
+* The extent to which the values of these variables differ is a measure of the delay in the communication
+* The amount by which the variables are advanced is the length of the data in the segment
+* Note that once in the ESTABLISHED state all segments must carry current acknowledgment information
+* The CLOSE user call implies a push function, as does the FIN control flag in an incoming segment
 
 ### <A name="retransmissiontimeout"></A> Retransmission Timeout
 
@@ -363,19 +364,19 @@ Because of the variability of the networks that compose an
  for determining a retransmission time out is given here as an
  illustration.
 
- An Example Retransmission Timeout Procedure
+__An Example Retransmission Timeout Procedure__:
 
 * Measure the elapsed time between sending a data octet with a particular sequence number and receiving an acknowledgment that
  covers that sequence number (segments sent do not have to match segments received).
-    * This measured elapsed time is the Round Trip Time (RTT).
-* Next compute a Smoothed Round Trip Time (SRTT) as:
-    * SRTT = ( ALPHA * SRTT ) + ((1-ALPHA) * RTT)
-* and based on this, compute the retransmission timeout (RTO) as:
-    * RTO = min[UBOUND,max[LBOUND,(BETA*SRTT)]]
-        * where UBOUND is an upper bound on the timeout (e.g., 1 minute),
-        * LBOUND is a lower bound on the timeout (e.g., 1 second),
-        * ALPHA is a smoothing factor (e.g., .8 to .9),
-        * and BETA is a delay variance factor (e.g., 1.3 to 2.0).
+    * This measured elapsed time is the Round Trip Time (__RTT__).
+* Next compute a Smoothed Round Trip Time (__SRTT__) as:
+    * __SRTT__ = ( __ALPHA__ * __SRTT__ ) + ((1 - __ALPHA__) * __RTT__)
+* and based on this, compute the retransmission timeout (__RTO__) as:
+    * RTO = min[__UBOUND__,max[__LBOUND__,(__BETA__ * __SRTT__)]]
+        * where __UBOUND__ is an upper bound on the timeout (e.g., 1 minute),
+        * __LBOUND__ is a lower bound on the timeout (e.g., 1 second),
+        * __ALPHA__ is a smoothing factor (e.g., .8 to .9),
+        * and __BETA__ is a delay variance factor (e.g., 1.3 to 2.0).
 
 ### <A name="urgent"></A> The Communication of Urgent Information
 
@@ -582,16 +583,16 @@ The following information is provided:
 Events that occur:
 
 * User Calls
-    * OPEN
-    * SEND
-    * RECEIVE
-    * CLOSE
-    * ABORT
-    * STATUS
+    * __OPEN__
+    * __SEND__
+    * __RECEIVE__
+    * __CLOSE__
+    * __ABORT__
+    * __STATUS__
 * Arriving Segments
-    * SEGMENT ARRIVES
+    * __SEGMENT ARRIVES__
 * Timeouts
-    * USER TIMEOUT
-    * RETRANSMISSION TIMEOUT
-    * TIME-WAIT TIMEOUT
+    * __USER TIMEOUT__
+    * __RETRANSMISSION TIMEOUT__
+    * __TIME-WAIT TIMEOUT__
 
