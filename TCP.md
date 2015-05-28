@@ -26,6 +26,16 @@ Extracts from RFC793: [https://tools.ietf.org/html/rfc793](https://tools.ietf.or
     * [ABORT](#abort)
     * [TCP-to-User Messages](#tcptouser)
 * [Event Processing](#eventprocessing)
+    * [OPEN Call](#opencall)
+    * [SEND Call](#sendcall)
+    * [RECEIVE Call](#receivecall)
+    * [CLOSE Call](#closecall)
+    * [ABORT Call](#abortcall)
+    * [STATUS Call](#statuscall)
+    * [SEGMENT ARRIVES](#segmentarrives)
+    * [USER TIMEOUT](#usertimeout)
+    * [RETRANSMISSION TIMEOUT](#retransmissiontimeoutevent)
+    * [TIME-WAIT TIMEOUT](#timewaittimeout)
 
 ## <A name="headerformat"></A> Header Format
 
@@ -102,8 +112,8 @@ The TCP Length is the TCP header length plus the data length in
     * This field communicates the current value of the urgent pointer as a positive offset from the sequence number in this segment. The urgent pointer points to the sequence number of the octet following the urgent data. This field is only be interpreted in segments with the URG control bit set.
 * __Options__: variable
     * Options may occupy space at the end of the TCP header and are a multiple of 8 bits in length. All options are included in the checksum. An option may begin on any octet boundary. There are two cases for the format of an option:
-        * Case 1: A single octet of option-kind.
-        * Case 2: An octet of option-kind, an octet of option-length, and the actual option-data octets.
+        * __Case 1__: A single octet of option-kind.
+        * __Case 2__: An octet of option-kind, an octet of option-length, and the actual option-data octets.
     The option-length counts the two octets of option-kind and option-length as well as the option-data octets. Note that the list of options may be shorter than the data offset field might imply. The content of the header beyond the End-of-Option option must be header padding (i.e., zero).
 
 A TCP must implement all options. Currently defined options include (kind indicated in octal):
@@ -387,7 +397,7 @@ The objective of the TCP urgent mechanism is to allow the sending user
 
 This mechanism permits a point in the data stream to be designated as
 the end of urgent information. Whenever this point is in advance of
-the receive sequence number (RCV.NXT) at the receiving TCP, that TCP
+the receive sequence number (__RCV.NXT__) at the receiving TCP, that TCP
 must tell the user to go into "urgent mode"; when the receive sequence
 number catches up to the urgent pointer, the TCP must tell user to go
 into "normal mode". If the urgent pointer is updated while the user
@@ -595,4 +605,396 @@ Events that occur:
     * __USER TIMEOUT__
     * __RETRANSMISSION TIMEOUT__
     * __TIME-WAIT TIMEOUT__
+
+-----------------
+
+### <A name="opencall"></A> OPEN Call
+
+* __CLOSED STATE__
+    * Create a new transmission control block (TCB) to hold connection state information. Fill in local socket identifier, foreign socket, precedence, security/compartment, and user timeout information. Note that some parts of the foreign socket may be unspecified in a passive OPEN and are to be filled in by the parameters of the incoming SYN segment.
+    * Verify the security and precedence requested are allowed for this user, if not return _"error: precedence not allowed"_ or _"error: security/compartment not allowed."_
+    * If passive enter the __LISTEN state__ and return.
+    * If active and the foreign socket is unspecified, return _"error: foreign socket unspecified"_;
+    * if active and the foreign socket is specified, issue a SYN segment. An initial send sequence number (__ISS__) is selected. A SYN segment of the form `<SEQ=ISS><CTL=SYN>` is sent. Set __SND.UNA = ISS__ , __SND.NXT = ISS+1__, enter __SYN-SENT state__, and return.
+    * If the caller does not have access to the local socket specified, return "error: connection illegal for this process".
+    * If there is no room to create a new connection, return _"error: insufficient resources"_.
+* __LISTEN STATE__
+    * If active and the foreign socket is specified, then change the connection from passive to active, select an __ISS__. Send a SYN segment, set __SND.UNA = ISS__, __SND.NXT = ISS+1__. Enter __SYN-SENT state__.
+    * Data associated with SEND may be sent with SYN segment or queued for transmission after entering ESTABLISHED state.
+    * The urgent bit if requested in the command must be sent with the data segments sent as a result of this command.
+    * If there is no room to queue the request, respond with _"error: insufficient resources"_.
+    * If Foreign socket was not specified, then return _"error: foreign socket unspecified"_.
+* __SYN-SENT STATE__
+* __SYN-RECEIVED STATE__
+* __ESTABLISHED STATE__
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+* __CLOSE-WAIT STATE__
+* __CLOSING STATE__
+* __LAST-ACK STATE__
+* __TIME-WAIT STATE__
+    * Return _"error: connection already exists"_.
+
+----------------
+
+### <A name="sendcall"></A> SEND Call
+
+* __CLOSED STATE__
+    * If the user does not have access to such a connection, then return _"error: connection illegal for this process"_.
+    * Otherwise, return _"error: connection does not exist"_.
+* __LISTEN STATE__
+    * If the foreign socket is specified, then change the connection from passive to active, select an __ISS__. Send a SYN segment, set __SND.UNA__ = __ISS__, __SND.NXT__ = __ISS+1__. Enter __SYN-SENT state__. Data associated with SEND may be sent with SYN segment or queued for transmission after entering ESTABLISHED state. The urgent bit if requested in the command must be sent with the data segments sent as a result of this command.
+    * If there is no room to queue the request, respond with _"error: insufficient resources"_.
+    * If Foreign socket was not specified, then return _"error: foreign socket unspecified"_.
+* __SYN-SENT STATE__
+* __SYN-RECEIVED STATE__
+    * Queue the data for transmission after entering __ESTABLISHED state__.
+    * If no space to queue, respond with _"error: insufficient resources"_.
+* __ESTABLISHED STATE__
+* __CLOSE-WAIT STATE__
+    * Segmentize the buffer and send it with a piggybacked acknowledgment (acknowledgment value = __RCV.NXT__).
+    * If there is insufficient space to remember this buffer, simply return _"error: insufficient resources"_.
+    * If the urgent flag is set, then __SND.UP = SND.NXT-1__ and set the urgent pointer in the outgoing segments.
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+* __CLOSING STATE__
+* __LAST-ACK STATE__
+* __TIME-WAIT STATE__
+    * Return _"error: connection closing"_ and do not service request.
+
+----------------
+
+### <A name="receivecall"></A> RECEIVE Call
+
+* __CLOSED STATE__
+    * If the user does not have access to such a connection, return _"error: connection illegal for this process"_.
+    * Otherwise return _"error: connection does not exist"_.
+* __LISTEN STATE__
+* __SYN-SENT STATE__
+* __SYN-RECEIVED STATE__
+    * Queue for processing after entering __ESTABLISHED state__.
+    * If there is no room to queue this request, respond with _"error: insufficient resources"_.
+    * Queue for processing after entering __ESTABLISHED state__.
+    * If there is no room to queue this request, respond with _"error: insufficient resources"_.
+    * Queue for processing after entering __ESTABLISHED state__.
+    * If there is no room to queue this request, respond with _"error: insufficient resources"_.
+* __ESTABLISHED STATE__
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+    * If insufficient incoming segments are queued to satisfy the request, queue the request.
+    * If there is no queue space to remember the RECEIVE, respond with _"error: insufficient resources"_.
+    * Reassemble queued incoming segments into receive buffer and return to user.
+    * Mark "push seen" (PUSH) if this is the case.
+    * If __RCV.UP__ is in advance of the data currently being passed to the user notify the user of the presence of urgent data.
+    * When the TCP takes responsibility for delivering data to the user that fact must be communicated to the sender via an acknowledgment. The formation of such an acknowledgment is described below in the discussion of processing an incoming segment.
+* __CLOSE-WAIT STATE__
+    * Since the remote side has already sent FIN, RECEIVEs must be satisfied by text already on hand, but not yet delivered to the user.
+    * If no text is awaiting delivery, the RECEIVE will get a _"error: connection closing"_ response.
+    * Otherwise, any remaining text can be used to satisfy the RECEIVE.
+* __CLOSING STATE__
+* __LAST-ACK STATE__
+* __TIME-WAIT STATE__
+    * Return _"error: connection closing"_.
+
+----------------
+
+### <A name="closecall"></A> CLOSE Call
+
+* __CLOSED STATE__
+    * If the user does not have access to such a connection, return _"error: connection illegal for this process"_.
+    * Otherwise, return _"error: connection does not exist"_.
+* __LISTEN STATE__
+    * Any outstanding RECEIVEs are returned with _"error: closing"_ responses.
+    * Delete TCB, enter CLOSED state, and return.
+* __SYN-SENT STATE__
+    * Delete the TCB and return _"error: closing"_ responses to any queued SENDs, or RECEIVEs.
+* __SYN-RECEIVED STATE__
+    * If no SENDs have been issued and there is no pending data to send, then form a FIN segment and send it, and enter __FIN-WAIT-1 state__;
+    * otherwise queue for processing after entering __ESTABLISHED state__.
+* __ESTABLISHED STATE__
+    * Queue this until all preceding SENDs have been segmentized, then form a FIN segment and send it.
+    * In any case, enter __FIN-WAIT-1 state__.
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+    * Strictly speaking, this is an error and should receive a _"error: connection closing"_ response. An _"ok"_ response would be acceptable, too, as long as a second FIN is not emitted (the first FIN may be retransmitted though).
+* __CLOSE-WAIT STATE__
+    * Queue this request until all preceding SENDs have been segmentized; then send a FIN segment, enter __CLOSING state__.
+* __CLOSING STATE__
+    * Respond with _"error: connection closing"_.
+* __LAST-ACK STATE__
+    * Respond with _"error: connection closing"_.
+* __TIME-WAIT STATE__
+    * Respond with _"error: connection closing"_.
+
+----------------
+
+### <A name="abortcall"></A> ABORT Call
+
+* __CLOSED STATE__
+    * If the user should not have access to such a connection, return _"error: connection illegal for this process"_.
+    * Otherwise return _"error: connection does not exist"_.
+* __LISTEN STATE__
+    * Any outstanding RECEIVEs should be returned with _"error: connection reset"_ responses.
+    * Delete TCB, enter __CLOSED state__, and return.
+* __SYN-SENT STATE__
+    * All queued SENDs and RECEIVEs should be given _"connection reset"_ notification, delete the TCB, enter __CLOSED state__, and return.
+* __SYN-RECEIVED STATE__
+* __ESTABLISHED STATE__
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+* __CLOSE-WAIT STATE__
+    * Send a reset segment: `<SEQ=SND.NXT><CTL=RST>`
+    * All queued SENDs and RECEIVEs should be given _"connection reset"_ notification;
+    * all segments queued for transmission (except for the RST formed above) or retransmission should be flushed, delete the TCB, enter __CLOSED state__, and return.
+* __CLOSING STATE__
+* __LAST-ACK STATE__
+* __TIME-WAIT STATE__
+    * Respond with _"ok"_ and delete the TCB, enter __CLOSED state__, and return.
+
+----------------
+
+### <A name="statuscall"></A> STATUS Call
+
+* __CLOSED STATE__
+    * If the user should not have access to such a connection, return _"error: connection illegal for this process"_.
+    * Otherwise return _"error: connection does not exist"_.
+* __LISTEN STATE__
+* __SYN-SENT STATE__
+* __SYN-RECEIVED STATE__
+* __ESTABLISHED STATE__
+* __FIN-WAIT-1 STATE__
+* __FIN-WAIT-2 STATE__
+* __CLOSE-WAIT STATE__
+* __CLOSING STATE__
+* __LAST-ACK STATE__
+* __TIME-WAIT STATE__
+    * Return associated "state", and the TCB pointer
+
+----------------
+
+### <A name="segmentarrives"></A> SEGMENT ARRIVES
+
+* __If the state is CLOSED then__
+    * all data in the incoming segment is discarded.
+    * An incoming segment containing a RST is discarded.
+    * An incoming segment not containing a RST causes a RST to be sent in response.
+        * The acknowledgment and sequence field values are selected to make the reset sequence acceptable to the TCP that sent the offending segment.
+        * If the ACK bit is off, sequence number zero is used, `<SEQ=0><ACK=SEG.SEQ+SEG.LEN><CTL=RST,ACK>`.
+        * If the ACK bit is on, `<SEQ=SEG.ACK><CTL=RST>`.
+* __If the state is LISTEN then__
+    * first check for an RST
+        * An incoming RST should be ignored.
+        * Return.
+    * second check for an ACK
+        * Any acknowledgment is bad if it arrives on a connection still in the __LISTEN state__. An acceptable reset segment should be formed for any arriving ACK-bearing segment. The RST should be formatted as follows: `<SEQ=SEG.ACK><CTL=RST>`
+        * Return.
+    * third check for a SYN
+        * If the SYN bit is set, check the security.
+            * If the security/compartment on the incoming segment does not exactly match the security/compartment in the TCB then send a reset `<SEQ=SEG.ACK><CTL=RST>` and return.
+        * If the SEG.PRC is greater than the TCB.PRC then if allowed by the user and the system set TCB.PRC<-SEG.PRC, if not allowed send a reset `<SEQ=SEG.ACK><CTL=RST>` and return.
+        * If the SEG.PRC is less than the TCB.PRC then continue.
+        * Set __RCV.NXT = SEG.SEQ+1__, __IRS = SEG.SEQ__ and any other control or text should be queued for processing later.
+        * __ISS__ should be selected and a SYN segment sent of the form: `<SEQ=ISS><ACK=RCV.NXT><CTL=SYN,ACK>`
+        * __SND.NXT = ISS+1__ and __SND.UNA = ISS__. The connection state should be changed to __SYN-RECEIVED state__.
+        * Note that any other incoming control or data (combined with SYN) will be processed in the SYN-RECEIVED state, but processing of SYN and ACK should not be repeated. If the listen was not fully specified (i.e., the foreign socket was not fully specified), then the unspecified fields should be filled in now.
+    * fourth other text or control
+        * Any other control or text-bearing segment (not containing SYN) must have an ACK and thus would be discarded by the ACK processing.
+        * An incoming RST segment could not be valid, since it could not have been sent in response to anything sent by this incarnation of the connection.
+        * So you are unlikely to get here, but if you do, drop the segment, and return.
+* __If the state is SYN-SENT then__
+    * first check the ACK bit
+        * If the ACK bit is set
+            * If __SEG.ACK =< ISS__ or __SEG.ACK > SND.NXT__ send a reset (unless the RST bit is set, if so drop the segment and return) `<SEQ=SEG.ACK><CTL=RST>` and discard the segment. Return.
+            * If __SND.UNA =< SEG.ACK =< SND.NXT__ then the ACK is acceptable.
+    * second check the RST bit
+        * If the RST bit is set
+            * If the ACK was acceptable then signal the user _"error: connection reset"_, drop the segment, enter CLOSED state, delete TCB, and return.
+            * Otherwise (no ACK) drop the segment and return.
+    * third check the security and precedence
+        * If the security/compartment in the segment does not exactly match the security/compartment in the TCB, send a reset
+            * If there is an ACK `<SEQ=SEG.ACK><CTL=RST>`
+            * Otherwise `<SEQ=0><ACK=SEG.SEQ+SEG.LEN><CTL=RST,ACK>`
+        * If there is an ACK
+            * The precedence in the segment must match the precedence in the TCB, if not, send a reset `<SEQ=SEG.ACK><CTL=RST>`
+        * If there is no ACK
+            * If the precedence in the segment is higher than the precedence in the TCB then if allowed by the user and the system raise the precedence in the TCB to that in the segment, if not allowed to raise the prec then send a reset. `<SEQ=0><ACK=SEG.SEQ+SEG.LEN><CTL=RST,ACK>`
+            * If the precedence in the segment is lower than the precedence in the TCB continue.
+        * If a reset was sent, discard the segment and return.
+    * fourth check the SYN bit
+        * This step should be reached only if the ACK is ok, or there is no ACK, and it the segment did not contain a RST.
+        * If the SYN bit is on and the security/compartment and precedence are acceptable then, __RCV.NXT = SEG.SEQ+1__, __IRS = SEG.SEQ__. __SND.UNA__ should be advanced to equal __SEG.ACK__ (if there is an ACK), and any segments on the retransmission queue which are thereby acknowledged should be removed.
+        * If __SND.UNA > ISS__ (our SYN has been ACKed), change the connection state to __ESTABLISHED state__, form an ACK segment `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>` and send it. Data or controls which were queued for transmission may be included.
+        * If there are other controls or text in the segment then continue processing at the sixth step below where the URG bit is checked, otherwise return.
+        * Otherwise enter __SYN-RECEIVED state__, form a SYN,ACK segment `<SEQ=ISS><ACK=RCV.NXT><CTL=SYN,ACK>` and send it.
+        * If there are other controls or text in the segment, queue them for processing after the __ESTABLISHED state__ has been reached, return.
+    * fifth, if neither of the SYN or RST bits is set then drop the segment and return.
+
+Otherwise (state not equal to __CLOSE__, __LISTEN__ or __SYN_SENT state__),
+
+1. __Check sequence number,__
+    * __SYN-RECEIVED STATE__
+    * __ESTABLISHED STATE__
+    * __FIN-WAIT-1 STATE__
+    * __FIN-WAIT-2 STATE__
+    * __CLOSE-WAIT STATE__
+    * __CLOSING STATE__
+    * __LAST-ACK STATE__
+    * __TIME-WAIT STATE__
+        * Segments are processed in sequence. Initial tests on arrival are used to discard old duplicates, but further processing is done in __SEG.SEQ__ order.
+        * If a segment’s contents straddle the boundary between old and new, only the new parts should be processed.
+        * There are four cases for the acceptability test for an incoming segment:
+
+```
+ Segment Receive Test
+ Length  Window
+ ------- ------- -------------------------------------------
+    0       0    SEG.SEQ = RCV.NXT
+    0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+   >0       0    not acceptable
+   >0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+              or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
+```
+
+        * If the __RCV.WND__ is zero, no segments will be acceptable, but special allowance should be made to accept valid ACKs, URGs and RSTs.
+        * If an incoming segment is not acceptable, an acknowledgment should be sent in reply (unless the RST bit is set, if so drop the segment and return): `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>`
+        * After sending the acknowledgment, drop the unacceptable segment and return.
+        * In the following it is assumed that the segment is the idealized segment that begins at __RCV.NXT__ and does not exceed the window.
+        * One could tailor actual segments to fit this assumption by trimming off any portions that lie outside the window (including SYN and FIN), and only processing further if the segment then begins at __RCV.NXT__.
+        * Segments with higher begining sequence numbers may be held for later processing.
+2. __Check the RST bit,__
+    * __SYN-RECEIVED STATE__
+        * If the RST bit is set
+            * If this connection was initiated with a passive OPEN (i.e., came from the __LISTEN state__), then return this connection to __LISTEN state__ and return. The user need not be informed.
+            * If this connection was initiated with an active OPEN (i.e., came from __SYN-SENT state__) then the connection was refused, signal the user "connection refused".
+            * In either case, all segments on the retransmission queue should be removed.
+            * And in the active OPEN case, enter the __CLOSED state__ and delete the TCB, and return.
+    * __ESTABLISHED__
+    * __FIN-WAIT-1__
+    * __FIN-WAIT-2__
+    * __CLOSE-WAIT__
+        * If the RST bit is set then, any outstanding RECEIVEs and SEND should receive _"reset"_ responses.
+        * All segment queues should be flushed.
+        * Users should also receive an unsolicited general _"connection reset"_ signal.
+        * Enter the __CLOSED state__, delete the TCB, and return.
+    * __CLOSING STATE__
+    * __LAST-ACK STATE__
+    * __TIME-WAIT__
+        * If the RST bit is set then, enter the __CLOSED state__, delete the TCB, and return.
+3. __Check security and precedence,__
+    * __SYN-RECEIVED__
+        * If the security/compartment and precedence in the segment do not exactly match the security/compartment and precedence in the TCB then send a reset, and return.
+    * __ESTABLISHED STATE__
+        * If the security/compartment and precedence in the segment do not exactly match the security/compartment and precedence in the TCB then send a reset, any outstanding RECEIVEs and SEND should receive _"reset"_ responses.
+        * All segment queues should be flushed.
+        * Users should also receive an unsolicited general _"connection reset"_ signal.
+        * Enter the __CLOSED state__, delete the TCB, and return.
+    * Note this check is placed following the sequence check to prevent a segment from an old connection between these ports with a different security or precedence from causing an abort of the current connection.
+4. __Check the SYN bit,__
+    * __SYN-RECEIVED__
+    * __ESTABLISHED STATE__
+    * __FIN-WAIT STATE-1__
+    * __FIN-WAIT STATE-2__
+    * __CLOSE-WAIT STATE__
+    * __CLOSING STATE__
+    * __LAST-ACK STATE__
+    * __TIME-WAIT STATE__
+        * If the SYN is in the window it is an error, send a reset, any outstanding RECEIVEs and SEND should receive _"reset"_ responses, all segment queues should be flushed, the user should also receive an unsolicited general _"connection reset"_ signal, enter the __CLOSED state__, delete the TCB, and return.
+        * If the SYN is not in the window this step would not be reached and an ack would have been sent in the first step (sequence number check).
+5. __Check the ACK field,__
+    * if the ACK bit is off drop the segment and return
+    * if the ACK bit is on
+        * __SYN-RECEIVED STATE__
+            * If __SND.UNA =< SEG.ACK =< SND.NXT__ then enter __ESTABLISHED state__ and continue processing
+            * If the segment acknowledgment is not acceptable, form a reset segment, `<SEQ=SEG.ACK><CTL=RST>` and send it
+        * __ESTABLISHED STATE__
+            * If __SND.UNA < SEG.ACK =< SND.NXT__ then __SND.UNA = SEG.ACK__
+            * Any segments on the retransmission queue which are thereby entirely acknowledged are removed.
+            * Users should receive positive acknowledgments for buffers which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with _"ok"_ response).
+            * If the ACK is a duplicate (__SEG.ACK < SND.UNA__), it can be ignored.
+            * If the ACK acks something not yet sent (__SEG.ACK > SND.NXT__) then send an ACK, drop the segment, and return.
+            * If __SND.UNA < SEG.ACK =< SND.NXT__, the send window should be updated.
+            * If (__SND.WL1 < SEG.SEQ__ or (__SND.WL1 == SEG.SEQ__ and __SND.WL2 =< SEG.ACK__)), set __SND.WND = SEG.WND__, set __SND.WL1 = SEG.SEQ__, and set __SND.WL2 = SEG.ACK__
+            * Note that __SND.WND__ is an offset from __SND.UNA__, that __SND.WL1__ records the sequence number of the last segment used to update __SND.WND__, and that __SND.WL2__ records the acknowledgment number of the last segment used to update __SND.WND__.
+            The check here prevents using old segments to update the window.
+        * __FIN-WAIT-1 STATE__
+            * In addition to the processing for the __ESTABLISHED state__, if our FIN is now acknowledged then enter __FIN-WAIT-2 state__ and continue processing in that state.
+        * __FIN-WAIT-2 STATE__
+            * In addition to the processing for the __ESTABLISHED state__, if the retransmission queue is empty, the user’s CLOSE can be acknowledged (_"ok"__) but do not delete the TCB.
+        * __CLOSE-WAIT STATE__
+            * Do the same processing as for the __ESTABLISHED state__.
+        * __CLOSING STATE__
+            * In addition to the processing for the __ESTABLISHED state__, if the ACK acknowledges our FIN then enter the __TIME-WAIT state__, otherwise ignore the segment.
+        * __LAST-ACK STATE__
+            * The only thing that can arrive in this state is an acknowledgment of our FIN.
+            If our FIN is now acknowledged, delete the TCB, enter the __CLOSED state__, and return.
+        * __TIME-WAIT STATE__
+            * The only thing that can arrive in this state is a retransmission of the remote FIN. Acknowledge it, and restart the 2 MSL timeout.
+6. __Check the URG bit,__
+    * __ESTABLISHED STATE__
+    * __FIN-WAIT-1 STATE__
+    * __FIN-WAIT-2 STATE__
+        * If the URG bit is set, __RCV.UP = max(RCV.UP,SEG.UP)__, and signal the user that the remote side has urgent data if the urgent pointer (__RCV.UP__) is in advance of the data consumed.
+        * If the user has already been signaled (or is still in the _"urgent mode"_) for this continuous sequence of urgent data, do not
+ signal the user again.
+    * __CLOSE-WAIT STATE__
+    * __CLOSING STATE__
+    * __LAST-ACK STATE__
+    * __TIME-WAIT__
+        * This should not occur, since a FIN has been received from the remote side.
+        * Ignore the URG.
+7. __Process the segment text,__
+    * __ESTABLISHED STATE__
+    * __FIN-WAIT-1 STATE__
+    * __FIN-WAIT-2 STATE__
+        * Once in the __ESTABLISHED state__, it is possible to deliver segment text to user RECEIVE buffers.
+        * Text from segments can be moved into buffers until either the buffer is full or the segment is empty.
+        * If the segment empties and carries an PUSH flag, then the user is informed, when the buffer is returned, that a PUSH has been received.
+        * When the TCP takes responsibility for delivering the data to the user it must also acknowledge the receipt of the data.
+        * Once the TCP takes responsibility for the data it advances __RCV.NXT__ over the data accepted, and adjusts __RCV.WND__ as apporopriate to the current buffer availability. The total of __RCV.NXT__ and __RCV.WND__ should not be reduced.
+        * Send an acknowledgment of the form: `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>`
+        * This acknowledgment should be piggybacked on a segment being transmitted if possible without incurring undue delay.
+    * __CLOSE-WAIT STATE__
+    * __CLOSING STATE__
+    * __LAST-ACK STATE__
+    * __TIME-WAIT STATE__
+        * This should not occur, since a FIN has been received from the remote side.
+        * Ignore the segment text.
+8. __Check the FIN bit:__
+    * Do not process the FIN if the state is CLOSED, LISTEN or SYN-SENT since the SEG.SEQ cannot be validated; drop the segment and return.
+If the FIN bit is set, signal the user _"connection closing"_ and return any pending RECEIVEs with same message, advance __RCV.NXT__ over the FIN, and send an acknowledgment for the FIN. Note that FIN implies PUSH for any segment text not yet delivered to the user.
+    * __SYN-RECEIVED STATE__
+    * __ESTABLISHED STATE__
+        * Enter the __CLOSE-WAIT state__.
+    * __FIN-WAIT-1 STATE__
+        * If our FIN has been ACKed (perhaps in this segment), then enter __TIME-WAIT state__, start the time-wait timer, turn off the other timers; otherwise enter the __CLOSING state__.
+    * __FIN-WAIT-2 STATE__
+        * Enter the TIME-WAIT state. Start the time-wait timer, turn off the other timers.
+    * __CLOSE-WAIT STATE__
+        * Remain in the __CLOSE-WAIT state__.
+    * __CLOSING STATE__
+        * Remain in the __CLOSING state__.
+    * __LAST-ACK STATE__
+        * Remain in the __LAST-ACK state__.
+    * __TIME-WAIT STATE__
+        * Remain in the __TIME-WAIT state__. Restart the 2 MSL time-wait timeout.
+
+and return.
+
+----------------
+
+### <A name="usertimeout"></A> USER TIMEOUT
+
+For any state if the user timeout expires, flush all queues, signal the user _"error: connection aborted due to user timeout"_ in general and for any outstanding calls, delete the TCB, enter the __CLOSED state__ and return.
+
+----------------
+
+### <A name="retransmissiontimeoutevent"></A> RETRANSMISSION TIMEOUT
+
+For any state if the retransmission timeout expires on a segment in the retransmission queue, send the segment at the front of the retransmission queue again, reinitialize the retransmission timer, and return.
+
+----------------
+
+### <A name="timewaittimeout"></A> TIME-WAIT TIMEOUT
+
+If the time-wait timeout expires on a connection delete the TCB, enter the __CLOSED state__ and return.
 
