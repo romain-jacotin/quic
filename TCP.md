@@ -845,13 +845,11 @@ Otherwise (state not equal to __CLOSE__, __LISTEN__ or __SYN_SENT state__),
         * There are four cases for the acceptability test for an incoming segment: <PRE>
  Segment Receive Test
  Length  Window
- ------- ------- -------------------------------------------
     0       0    SEG.SEQ = RCV.NXT
     0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
    >0       0    not acceptable
    >0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-              or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
-</PRE>
+              or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND</PRE>
 
         * If the __RCV.WND__ is zero, no segments will be acceptable, but special allowance should be made to accept valid ACKs, URGs and RSTs.
         * If an incoming segment is not acceptable, an acknowledgment should be sent in reply (unless the RST bit is set, if so drop the segment and return): `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>`
