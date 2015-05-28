@@ -250,62 +250,63 @@ A TCP connection progresses from one state to another in response to events. The
 This state diagram illustrates only state changes, together with the causing events and resulting actions, but addresses neither error conditions nor actions which are not connected with state changes.
 
 ```
-                             +---------+ ---------\     active OPEN
-                             |  CLOSED |            \   -----------
-                             +---------+<---------\   \  create TCB
-                               |     ^              \   \  snd SYN
-                  passive OPEN |     |   CLOSE        \   \
-                  ------------ |     | ----------       \   \
-                   create TCB  |     | delete TCB         \   \
-                               V     |                      \   \
-                             +---------+           CLOSE    |    \
-                             |  LISTEN |         ---------- |    |
-                             +---------+         delete TCB |    |
-                   rcv SYN     |     |    SEND              |    |
-                  -----------  |     |   -------            |    V
- +---------+      snd SYN,ACK /       \  snd SYN          +---------+
- |         |<-----------------         ------------------>|         |
- |   SYN   |                    rcv SYN                   |   SYN   |
- |   RCVD  |<---------------------------------------------|   SENT  |
- |         |                    snd ACK                   |         |
- |         |------------------           -----------------|         |
- +---------+   rcv ACK of SYN  \       /  rcv SYN,ACK     +---------+
-   |           --------------   |     |   -----------
-   |                  x         |     |     snd ACK
-   |                            V     V
-   |  CLOSE                   +---------+
-   | -------                  |  ESTAB  |
-   | snd FIN                  +---------+
-   |                   CLOSE    |     |    rcv FIN
-   V                  -------   |     |    -------
- +---------+          snd FIN  /       \   snd ACK        +---------+
- |  FIN    |<-----------------           ---------------->|  CLOSE  |
- | WAIT-1  |------------------                            |   WAIT  |
- +---------+         rcv FIN   \                          +---------+
- | rcv ACK of FIN    -------    |                          CLOSE  |
- | --------------    snd ACK    |                         ------- |
- V        x                     V                         snd FIN V
- +---------+                +---------+                   +---------+
- |FINWAIT-2|                | CLOSING |                   | LAST-ACK|
- +---------+                +---------+                   +---------+
- |                rcv ACK of FIN |                 rcv ACK of FIN |
- |  rcv FIN       -------------- |    Timeout=2MSL -------------- |
- |  -------              x       V    ------------        x       V
-  \ snd ACK                 +---------+delete TCB         +---------+
-   ------------------------>|TIME WAIT|------------------>| CLOSED  |
-                            +---------+                   +---------+
+                              +---------+ ---------\      active OPEN  
+                              |  CLOSED |            \    -----------  
+                              +---------+<---------\   \   create TCB  
+                                |     ^              \   \  snd SYN    
+                   passive OPEN |     |   CLOSE        \   \           
+                   ------------ |     | ----------       \   \         
+                    create TCB  |     | delete TCB         \   \       
+                                V     |                      \   \     
+                              +---------+            CLOSE    |    \   
+                              |  LISTEN |          ---------- |     |  
+                              +---------+          delete TCB |     |  
+                   rcv SYN      |     |     SEND              |     |  
+                  -----------   |     |    -------            |     V  
+ +---------+      snd SYN,ACK  /       \   snd SYN          +---------+
+ |         |<-----------------           ------------------>|         |
+ |   SYN   |                    rcv SYN                     |   SYN   |
+ |   RCVD  |<-----------------------------------------------|   SENT  |
+ |         |                    snd ACK                     |         |
+ |         |------------------           -------------------|         |
+ +---------+   rcv ACK of SYN  \       /  rcv SYN,ACK       +---------+
+   |           --------------   |     |   -----------                  
+   |                  x         |     |     snd ACK                    
+   |                            V     V                                
+   |  CLOSE                   +---------+                              
+   | -------                  |  ESTAB  |                              
+   | snd FIN                  +---------+                              
+   |                   CLOSE    |     |    rcv FIN                     
+   V                  -------   |     |    -------                     
+ +---------+          snd FIN  /       \   snd ACK          +---------+
+ |  FIN    |<-----------------           ------------------>|  CLOSE  |
+ | WAIT-1  |------------------                              |   WAIT  |
+ +---------+          rcv FIN  \                            +---------+
+   | rcv ACK of FIN   -------   |                            CLOSE  |  
+   | --------------   snd ACK   |                           ------- |  
+   V        x                   V                           snd FIN V  
+ +---------+                  +---------+                   +---------+
+ |FINWAIT-2|                  | CLOSING |                   | LAST-ACK|
+ +---------+                  +---------+                   +---------+
+   |                rcv ACK of FIN |                 rcv ACK of FIN |  
+   |  rcv FIN       -------------- |    Timeout=2MSL -------------- |  
+   |  -------              x       V    ------------        x       V  
+    \ snd ACK                 +---------+delete TCB         +---------+
+     ------------------------>|TIME WAIT|------------------>| CLOSED  |
+                              +---------+                   +---------+
 ```
+
 ## <A name="sequencenumber"></A> Sequence number
 
 In response to sending data the TCP will receive acknowledgments.
 The following comparisons are needed to process the acknowledgments.
 
-* __SND.UNA__ = oldest unacknowledged sequence number
-* __SND.NXT__ = next sequence number to be sent
-* __SEG.ACK__ = acknowledgment from the receiving TCP (next sequence number expected by the receiving TCP)
-* __SEG.SEQ__ = first sequence number of a segment
-* __SEG.LEN__ = the number of octets occupied by the data in the segment (counting SYN and FIN)
-* __SEG.SEQ__ + __SEG.LEN__ - 1 = last sequence number of a segment
+* __SND.UNA__ == oldest unacknowledged sequence number ?
+* __SND.NXT__ == next sequence number to be sent ?
+* __SEG.ACK__ == acknowledgment from the receiving TCP (next sequence number expected by the receiving TCP) ?
+* __SEG.SEQ__ == first sequence number of a segment ?
+* __SEG.LEN__ == the number of octets occupied by the data in the segment (counting SYN and FIN) ?
+* __SEG.SEQ__ + __SEG.LEN__ - 1 == last sequence number of a segment ?
 
 A new acknowledgment (called an "acceptable ack"), is one for which the inequality below holds:
 
@@ -316,10 +317,10 @@ is less or equal than the acknowledgment value in the incoming segment.
 
 When data is received the following comparisons are needed:
 
-* __RCV.NXT__ = next sequence number expected on an incoming segments, and is the left or lower edge of the receive window
-* __RCV.NXT__ + __RCV.WND__ - 1 = last sequence number expected on an incoming segment, and is the right or upper edge of the receive window
-* __SEG.SEQ__ = first sequence number occupied by the incoming segment
-* __SEG.SEQ__ + __SEG.LEN__ - 1 = last sequence number occupied by the incoming segment
+* __RCV.NXT__ == next sequence number expected on an incoming segments, and is the left or lower edge of the receive window ?
+* __RCV.NXT__ + __RCV.WND__ - 1 == last sequence number expected on an incoming segment, and is the right or upper edge of the receive window ?
+* __SEG.SEQ__ == first sequence number occupied by the incoming segment ?
+* __SEG.SEQ__ + __SEG.LEN__ - 1 == last sequence number occupied by the incoming segment ?
  
 A segment is judged to occupy a portion of valid receive sequence space if
 
