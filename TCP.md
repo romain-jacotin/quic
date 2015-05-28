@@ -842,9 +842,7 @@ Otherwise (state not equal to __CLOSE__, __LISTEN__ or __SYN_SENT state__),
     * __TIME-WAIT STATE__
         * Segments are processed in sequence. Initial tests on arrival are used to discard old duplicates, but further processing is done in __SEG.SEQ__ order.
         * If a segment’s contents straddle the boundary between old and new, only the new parts should be processed.
-        * There are four cases for the acceptability test for an incoming segment:
-
-```
+        * There are four cases for the acceptability test for an incoming segment: <PRE>
  Segment Receive Test
  Length  Window
  ------- ------- -------------------------------------------
@@ -853,7 +851,7 @@ Otherwise (state not equal to __CLOSE__, __LISTEN__ or __SYN_SENT state__),
    >0       0    not acceptable
    >0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
               or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
-```
+</PRE>
 
         * If the __RCV.WND__ is zero, no segments will be acceptable, but special allowance should be made to accept valid ACKs, URGs and RSTs.
         * If an incoming segment is not acceptable, an acknowledgment should be sent in reply (unless the RST bit is set, if so drop the segment and return): `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>`
