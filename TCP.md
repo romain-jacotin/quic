@@ -11,6 +11,7 @@ Extracts from RFC793: [https://tools.ietf.org/html/rfc793](https://tools.ietf.or
     * [Send Sequence Variables](#sendsequencevars)
     * [Receive Sequence Variables](#receivesequencevars)
     * [Current Segment Variables](#currentsegmentvars)
+    * [TCP States](#tcpstates)
 * [Sequence number](#sequencenumber)
     * [Initial Sequence Number Selection](#isns)
 * [Data Communication](#datacommunication)
@@ -221,6 +222,79 @@ __Receive Sequence Space__
 * __SEG.UP__ = segment urgent pointer
 * __SEG.PRC__ = segment precedence value
 
+### <A name="tcpstates"></A> TCP States
+
+A connection progresses through a series of states during its lifetime.
+Note that __CLOSED__ state is fictional because it represents the state when there is no TCB, and therefore, no connection.
+
+ Briefly the meanings of the states are:
+
+* __LISTEN__ : represents waiting for a connection request from any remote TCP and port.
+* __SYN-SENT__ : represents waiting for a matching connection request after having sent a connection request.
+* __SYN-RECEIVED__ : represents waiting for a confirming connection request acknowledgment after having both received and sent a connection request.
+* __ESTABLISHED__ : represents an open connection, data received can be delivered to the user. The normal state for the data transfer phase of the connection.
+* __FIN-WAIT-1__ : represents waiting for a connection termination request from the remote TCP, or an acknowledgment of the connection termination request previously sent.
+* __FIN-WAIT-2__ : represents waiting for a connection termination request from the remote TCP.
+* __CLOSE-WAIT__ : represents waiting for a connection termination request from the local user.
+* __CLOSING__ : represents waiting for a connection termination request acknowledgment from the remote TCP.
+* __LAST-ACK__ : represents waiting for an acknowledgment of the connection termination request previously sent to the remote TCP (which includes an acknowledgment of its connection termination request).
+* __TIME-WAIT__ : represents waiting for enough time to pass to be sure the remote TCP received the acknowledgment of its connection termination request.
+* __CLOSED__ : represents no connection state at all.
+
+A TCP connection progresses from one state to another in response to events. The events are :
+
+* the user calls, OPEN, SEND, RECEIVE, CLOSE, ABORT, and STATUS;
+* the incoming segments, particularly those containing the SYN, ACK, RST and FIN flags;
+* and timeouts.
+
+This state diagram illustrates only state changes, together with the causing events and resulting actions, but addresses neither error conditions nor actions which are not connected with state changes.
+
+```
+                             +---------+ ---------\     active OPEN
+                             |  CLOSED |            \   -----------
+                             +---------+<---------\   \  create TCB
+                               |     ^              \   \  snd SYN
+                  passive OPEN |     |   CLOSE        \   \
+                  ------------ |     | ----------       \   \
+                   create TCB  |     | delete TCB         \   \
+                               V     |                      \   \
+                             +---------+           CLOSE    |    \
+                             |  LISTEN |         ---------- |    |
+                             +---------+         delete TCB |    |
+                   rcv SYN     |     |    SEND              |    |
+                  -----------  |     |   -------            |    V
+ +---------+      snd SYN,ACK /       \  snd SYN          +---------+
+ |         |<-----------------         ------------------>|         |
+ |   SYN   |                    rcv SYN                   |   SYN   |
+ |   RCVD  |<---------------------------------------------|   SENT  |
+ |         |                    snd ACK                   |         |
+ |         |------------------           -----------------|         |
+ +---------+   rcv ACK of SYN  \       /  rcv SYN,ACK     +---------+
+   |           --------------   |     |   -----------
+   |                  x         |     |     snd ACK
+   |                            V     V
+   |  CLOSE                   +---------+
+   | -------                  |  ESTAB  |
+   | snd FIN                  +---------+
+   |                   CLOSE    |     |    rcv FIN
+   V                  -------   |     |    -------
+ +---------+          snd FIN  /       \   snd ACK        +---------+
+ |  FIN    |<-----------------           ---------------->|  CLOSE  |
+ | WAIT-1  |------------------                            |   WAIT  |
+ +---------+         rcv FIN   \                          +---------+
+ | rcv ACK of FIN    -------    |                          CLOSE  |
+ | --------------    snd ACK    |                         ------- |
+ V        x                     V                         snd FIN V
+ +---------+                +---------+                   +---------+
+ |FINWAIT-2|                | CLOSING |                   | LAST-ACK|
+ +---------+                +---------+                   +---------+
+ |                rcv ACK of FIN |                 rcv ACK of FIN |
+ |  rcv FIN       -------------- |    Timeout=2MSL -------------- |
+ |  -------              x       V    ------------        x       V
+  \ snd ACK                 +---------+delete TCB         +---------+
+   ------------------------>|TIME WAIT|------------------>| CLOSED  |
+                            +---------+                   +---------+
+```
 ## <A name="sequencenumber"></A> Sequence number
 
 In response to sending data the TCP will receive acknowledgments.
@@ -849,7 +923,7 @@ Length  Window
    0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
   >0       0    not acceptable
   >0      >0    RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-             or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND</PRE>
+                or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND</PRE>
         * If the __RCV.WND__ is zero, no segments will be acceptable, but special allowance should be made to accept valid ACKs, URGs and RSTs.
         * If an incoming segment is not acceptable, an acknowledgment should be sent in reply (unless the RST bit is set, if so drop the segment and return): `<SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>`
         * After sending the acknowledgment, drop the unacceptable segment and return.
