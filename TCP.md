@@ -1,6 +1,6 @@
 # Transmission Control Protocol
 
-Extracts from RFC793: [https://tools.ietf.org/html/rfc793](https://tools.ietf.org/html/rfc793)
+Extracts from __RFC793__: [https://tools.ietf.org/html/rfc793](https://tools.ietf.org/html/rfc793)
 
 ---------------------
 
@@ -457,7 +457,7 @@ __An Example Retransmission Timeout Procedure__:
 * Next compute a Smoothed Round Trip Time (__SRTT__) as:
     * __SRTT__ = ( __ALPHA__ * __SRTT__ ) + ((1 - __ALPHA__) * __RTT__)
 * and based on this, compute the retransmission timeout (__RTO__) as:
-    * RTO = min[__UBOUND__,max[__LBOUND__,(__BETA__ * __SRTT__)]]
+    * __RTO__ = min[__UBOUND__,max[__LBOUND__,(__BETA__ * __SRTT__)]]
         * where __UBOUND__ is an upper bound on the timeout (e.g., 1 minute),
         * __LBOUND__ is a lower bound on the timeout (e.g., 1 second),
         * __ALPHA__ is a smoothing factor (e.g., .8 to .9),
