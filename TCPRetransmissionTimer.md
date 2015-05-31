@@ -27,11 +27,11 @@ The rules governing the computation of __SRTT__, __RTTVAR__, and __RTO__ are as 
     * __SRTT = R__
     * __RTTVAR = R/2__
     * __RTO = SRTT + max( G, K * RTTVAR )__
-3. When a subsequent RTT measurement __R'__ is made, using alpha=1/8 and beta=1/4 a host MUST set:
+3. When a subsequent RTT measurement __R'__ is made (using __alpha=1/8__ and __beta=1/4__) :
     * __RTTVAR = (1 - beta) * RTTVAR + beta * |SRTT - R'|__
     * __SRTT = (1 - alpha) * SRTT + alpha * R'__
     * __RTO = SRTT + max( G, K * RTTVAR )__
-4. Whenever computed, __if RTO is less than 1 second, then the RTO SHOULD be rounded up to 1 second__.
+4. __if RTO is less than 1 second, then the RTO SHOULD be rounded up to 1 second__.
 5. __A maximum value MAY be placed on RTO provided it is at least 60 seconds__.
 
 ## <A name="rttsamples"></A> Taking RTT Samples
