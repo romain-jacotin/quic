@@ -40,11 +40,11 @@ Upon receiving an ACK during congestion avoidance, CUBIC computes the window gro
 
 Suppose that the current window size is cwnd. Depending on the value of cwnd, CUBIC runs in three different modes.
 
-1. __TCP friendly region__ : if cwnd is less than the window size that Standard TCP would reach at time t after the last loss event (we describe below how to determine this window size of Standard TCP in term of time t)
-2. __Concave region__ : if cwnd is less than W_max
+1. __Concave region__ : if cwnd is less than W_max
+2. __TCP friendly region__ : if cwnd is less than the window size that Standard TCP would reach at time t after the last loss event (we describe below how to determine this window size of Standard TCP in term of time t)
 3. __Convex region__ : if cwnd is larger than W_max
 
-![CUBIC window growth function](./CUBIC.png)
+![CUBIC window growth function](./CUBIC.png)  
 Below, we describe the exact actions taken by CUBIC in each region.
 
 ### <A name="tcpfriendly"></A> TCP-friendly region
