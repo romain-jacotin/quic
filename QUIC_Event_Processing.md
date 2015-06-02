@@ -28,8 +28,8 @@
         * [WINDOW_UPDATE Event](#)
         * [BLOCKED_FRAME Event](#)
 * [Timeout Events](#timeoutevents)
-    * [Ack Timer](#acktimer)
-    * [Retransmission Timeout Event](#retransmissiontimeout)
+    * [Ack Delay](#ackdelay)
+    * [Retransmission Timeout (RTO) Event](#retransmissiontimeout)
     * [Crypto Hanshake Timeout Event ](#cryptohandshaketimeout)
     * [Ping Timeout](#pingtimeout)
     * [Send Timeout & Resume Write Timeout (pacing & resume write)](#sendtimer)
@@ -43,34 +43,77 @@
 
 ## <A name="timeoutevents"></A> Timeout Events
 
-### <A name="acktimer"></A> Ack Timer Event
+### <A name="ackdelay"></A> Ack Delay Event
 
-### <A name="retransmissiontimeout"></A> Retransmission Timeout Event
+Ack delay before sending ACK_FRAME depends on the retransmission mode:
 
-* Always reset the retransmission alarm when an ack comes in, since we now have a better estimate of the current RTT than when it was set.
-* __Retransmission timeout = __
+* __MaximumDelayedAckTime = 25 ms__
+* __MinimumRetransmissionTime = 200 ms__
+* _HANDSHAKE MODE_ :
+    * __Ack delay = 0 ms__ (no delay before sending Ack !)
+* Otherwise :
+    * __Ack delay = Min( MaximumDelayedAckTime, MinimumRetransmissionTime/2 ) = 25 ms__
 
-* __HANDSHAKE MODE__
-    * clock_->ApproximateNow().Add(GetCryptoRetransmissionDelay())
-* __LOSS MODE__
-    * loss_algorithm_->GetLossTimeout()
-* __TAIL LOSS PROBE__
-    * __Retransmission timeout__ = GetTailLossProbeDelay() + unacked_packets_.GetLastPacketSentTime()
-* __RTO__
-    // The RTO is based on the first outstanding packet
-    QuicTime sent_time = unacked_packets_.GetLastPacketSentTime()
-    QuicTime rto_time = sent_time.Add(GetRetransmissionDelay())    
-    QuicTime tlp_time = unacked_packets_.GetLastPacketSentTime().Add(GetTailLossProbeDelay())
-    Max(tlp_time, rto_time)  // Wait for TLP packets to be acked before an RTO fires
+### <A name="retransmissiontimeout"></A> Retransmission Timeout (RTO) Event
+
+Always reset the retransmission alarm when an ack comes in, since we now have a better estimate of the current RTT than when it was set. Calcul of the Retransmission timeout (__RTO__) depends on the retransmission mode:
+
+* _HANDSHAKE MODE_ :
+    * The Crypto Retransmission Delay (ms) is equivalent to the Tail Loss Probe Delay, but slightly more aggressive because crypto handshake messages don't incur a delayed ack time.
+    * __SRTT__ = smoothed RTT in ms
+    * __MinimumHandshakeTimeout = 10 ms__
+    * __ConsecutiveCryptoRetransmissionCount__ = number of consecutive crypto packet needed to retransmit
+    * __CryptoRetransmissionDelay = max( MinimumHandshakeTimeout , 1.5*SRTT ) * (2^ConsecutiveCryptoRetransmissionCount)__
+    * __RTO = CryptoRetransmissionDelay__
+    * ( RTO += CurrentTime in discrete time )
+* _LOSS MODE_
+    * _TCP Loss algorithm_
+        * Set the timeout for the earliest retransmittable packet where early retransmit applies
+        * __NumberOfNacksBeforeRetransmission = 3__
+        * __MinimumLossDelay = 5 ms__
+        * __SRTT__ = smoothed RTT in ms
+        * __EarlyRetransmitDelay = Max( MinimumLossDelay, 1.25*SRTT )__
+        * __RTO = EarlyRetransmitDelay__
+        * ( RTO += LastUnackedPacketSentTime in discrete time )
+    * _Time Loss algorithm_
+        * Packet is consider lost with a LossDelay timeout after their sending
+        * __MinimumLossDelay = 5 ms__
+        * __SRTT__ = smoothed RTT in ms
+        * __LatestRTT__ = the latest estimated RTT value in ms (no smoothed)
+        * __LossDelay = 1.25 * Max( MinimumLossDelay, SRTT, LatestRTT )__
+        * __RTO = LossDelay__
+        * ( RTO += LastUnackedPacketSentTime in discrete time )
+* _TAIL LOSS PROBE_
+        * __MinimumTailLossProbeTimeout = 10 ms__
+        * __MinimumRetransmissionTime= 200 ms__
+    * if more than one packet in flight:
+        * __TailLossProbeDelay = Max( MinimumTailLossProbeTimeout, 2*SRTT )__
+    * otherwise
+        * __TailLossProbeDelay = Max( 2 * SRTT, 1.5 * SRTT + MinimumRetransmissionTime/2 )__
+    * __RTO = TailLossProbeDelay__
+    * ( RTO += LastUnackedPacketSentTime in discrete time )
+* _RTO_ (the first outstanding packet)
+    * Must wait at minimum for Tail Loss Probe packets to be acked
+    * __DefaultRetransmissionTime = 500 ms__
+    * __MinimumRetransmissionTime = 200 ms__
+    * __MaximumRetransmissionTime = 60.000 ms__
+    * __MaximumRetransmissions = 10__
+    * __ConsecutiveRTOCount__ = consecutive number RTO events before receiving any ACK_FRAME
+    * __RetransmissionDelay = SRTT + 4*MeanDeviationRTT__
+    * __RetransmissionDelay * = (2 ^ Min( ConsecutiveRTOCount , MaximumRetransmissions ))__
+    * __RetransmissionDelay = Min( RetransmissionDelay, MaximumRetransmissionTime )__
+    * __RTO = Max( RetransmissionDelay, TailLossProbeDelay, MinimumRetransmissionTime )__
+    * ( RTO += LastUnackedPacketSentTime in discrete time )
 
 ### <A name="cryptohandshaketimeout"></A> Crypto Handshake Timeout Event
 
 * __Max time before crypto handshake = 10 seconds__
-* __Max idle time before crypto handshake = 5 seconds__
+* __Max idle time before crypto handshake = 5 seconds__ (no network activity)
 
 ### <A name="pingtimeout"></A> Ping Timeout Event
 
-* If no QUIC packet is send or received for a "ping timeout" duration then a QUIC PING_FRAME must be send.
+* If there is open streams:
+    * a QUIC PING_FRAME must be send if no QUIC packet is send or received for a "ping timeout" duration
 * __Ping timeout = 15 seconds__
 
 ### <A name="sendtimeout"></A> Send Timeout & Resume Write Timeout Event
