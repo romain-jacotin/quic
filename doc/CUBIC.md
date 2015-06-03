@@ -44,7 +44,7 @@ Suppose that the current window size is cwnd. Depending on the value of cwnd, CU
 2. __TCP friendly region__ : if cwnd is less than the window size that Standard TCP would reach at time t after the last loss event (we describe below how to determine this window size of Standard TCP in term of time t)
 3. __Convex region__ : if cwnd is larger than W_max
 
-![CUBIC window growth function](./CUBIC.png)  
+![CUBIC window growth function](../img/CUBIC.png)  
 Below, we describe the exact actions taken by CUBIC in each region.
 
 ### <A name="tcpfriendly"></A> TCP-friendly region

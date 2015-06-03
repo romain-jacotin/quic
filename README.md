@@ -41,9 +41,9 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
         * [Write with Duplicate QUIC packets](*duplicatewrite)
     * [Close (half)](#streamclose)
     * [Reset](#streamreset)
-* [ANNEX A: Extracts from RFC793 - TCP](./TCP.md)
-* [ANNEX B: Extracts from RFC6298 - Computing TCP's Retransmission Timer](./TCPRetransmissionTimer.md)
-* [ANNEX C: Extracts from draft-rhee-tcpm-cubic-02 - CUBIC Congestion Control for Fast Long-Distance Networks](./CUBIC.md)
+* [ANNEX A: Extracts from RFC793 - TCP](./doc/TCP.md)
+* [ANNEX B: Extracts from RFC6298 - Computing TCP's Retransmission Timer](./doc/TCPRetransmissionTimer.md)
+* [ANNEX C: Extracts from draft-rhee-tcpm-cubic-02 - CUBIC Congestion Control for Fast Long-Distance Networks](./doc/CUBIC.md)
 
 ## <A name="introduction"></A> Introduction
 
