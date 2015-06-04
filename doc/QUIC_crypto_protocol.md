@@ -12,8 +12,10 @@ Extracts from official __QUIC Crypto__ document:
     * [Handshake costs](#handshakecosts)
 * [Handshake message format](#handshakemessage)
 * [Client Handshake](#clienthandshake)
-    * [Client Hello message(CHLO)](#chlo)
+    * [Inchoate Client Hello message (inchoate CHLO)](#chlo)
     * [Rejection message (REJ)](#rej)
+        * [Server Config](#scfg)
+    * [Full Client Hello message (full CHLO)](#fullchlo)
     * [Server Hello message (SHLO)](#shlo)
 * [Key Derivation](#keyderivation)
 * [Client Encrypted Tag Values (CETV)](#cetv)
@@ -87,7 +89,7 @@ Initially the client knows nothing about the server. Before a handshake can be a
 
 To perform 0-RTT handshake, the client needs to have a server config that has been verified to be authentic.
 
-### <A name="chlo"></A> Client hello message (CHLO)
+### <A name="chlo"></A> Inchoate Client hello message (inchoate CHLO)
 
 Client Hello messages have the message tag __CHLO__ and, in their inchoate form, contain the following tag/value pairs:
 
@@ -115,19 +117,150 @@ Rejection message have the tag __REJ__ and contain the following tag/value pairs
     * __RSA__ RSA-PSS-SHA256
     * __ECDSA__ ECDSA-SHA256
     * The signature is calculated over:
-        1. The label "QUIC server config signature"
+        1. The label <CODE>"QUIC server config signature"</CODE>
         2. An 0x00 byte
         3. The serialised server config
 
 Although all the elements of the rejection message are optional, the server must allow the client to make progress.
 
+#### <A name="scfg"></A> Server Config
+
+The server config contains the serialised preferences for the server and takes the form of a handshake message with tag __SCFG__. It contains the following tag/value pairs:
+
+* __SCID__ Server config ID: an opaque, 16-byte identifier for this server config
+* __KEXS__ Key exchange algorithms: a list of tags, in preference order, specifying the key exchange algorithms that the server supports. The following tags are defined:
+    * __C255__ Curve25519
+    * __P256__ P-256
+* __AEAD__ Authenticated encryption algorithms: a list of tags, in preference order, specifying the AEAD primitives supported by the server. The following tags are defined:
+    * __AESG__ : AES-GCM with a 12-byte tag and IV. The first four bytes of the IV are taken from the key derivation and the last eight are the packet sequence number.
+    * __S20P__ : Salsa20 with Poly1305.
+* __PUBS__ A list of public values, 24-bit, little-endian length prefixed, in the same order as in KEXS.
+* __ORBT__ Orbit: an 8-byte, opaque value that identifies the strike-register.
+* __EXPY__ Expiry: a 64-bit expiry time for the server config in UNIX epoch seconds.
+* __VERS__ Versions: the list of version tags supported by the server. The underlying QUIC packet protocol has a version negotiation. The server’s supported versions are mirrored in the signed server config to confirm that no downgrade attack occurred.
+
+### <A name="fullchlo"></A> Full Client Hello message (full CHLO)
+
+Once the client has received a server config, and has authenticated it by verifying the certificate chain and signature, it can perform a handshake that isn’t designed to fail by sending a full client hello. A full client hello contains the same tags as an inchoate client hello, with the addition of several others:
+
+* __SCID__ Server config ID: the ID of the server config that the client is using.
+* __AEAD__ Authenticated encryption: the tag of the AEAD algorithm to be used.
+* __KEXS__ Key exchange: the tag of the key exchange algorithm to be used.
+* __NONC__ Client nonce: 32 bytes consisting of 4 bytes of timestamp (big-endian, UNIX epoch seconds), 8 bytes of server orbit and 20 bytes of random data.
+* __SNO__ Server nonce (optional): an echoed server nonce, if the server has provided one.
+* __PUBS__ Public value: the client’s public value for the given key exchange algorithm.
+* __CETV__ Client encrypted tag-values (optional): a serialised message, encrypted with the AEAD algorithm specified in this client hello and with keys derived in the manner specified in the CETV section, below. This message will contain further, encrypted tag-value pairs that specify client certificates, ChannelIDs etc.
+
+After sending a full client hello, the client is in possession of non-forward-secure keys for the connection since it can calculate the shared value from the server config and the public value in PUBS. (For details of the [key derivation](#keyderivation), see below.) These keys are called the initial keys (as opposed the the forward-secure keys that come later) and the client should encrypt future packets with these keys. It should also configure the packet processing to accept packets encrypted with these keys in a latching fashion: once an encrypted packet has been received, no further unencrypted packets should be accepted.
+
+At this point, the client is free to start sending application data to the server. Indeed, if it wishes to achieve 0-RTT then it must start sending before waiting for the server’s reply.
+
+Retransmission of data occurs at a layer below the handshake layer, however that layer must still be aware of the change of encryption. New packets must be transmitted using the initial keys but, if the client hello needs to be retransmitted, then it must be retransmitted in the clear. The packet sending layer must be aware of which security level was originally used to send any given packet and be careful not to use a higher security level unless the peer has acknowledged possession of those keys (i.e. by sending a packet using that security level).
+
+The server will either accept or reject the handshake. In the event that the server rejects the client hello, it will send a REJ message and all packets transmitted using the initial keys must be considered lost and need to be retransmitted under the new, initial keys. Because of this, clients should limit the amount of data outstanding while a server hello or rejection is pending.
+
 ### <A name="shlo"></A> Server Hello message (SHLO)
+
+In the happy event that the handshake is successful, the server will return a server hello message. This message has the tag SHLO, is encrypted using the initial keys,  and contains the following tag/value pairs in addition to those defined for a rejection message:
+
+* __PUBS__ An ephemeral public value for the key exchange algorithm used by the client.
+
+With the ephemeral public value in hand, both sides can calculate the forward-secure keys. (See section on [key derivation](#keyderivation)) The server can switch to sending packets encrypted with the forward-secure keys immediately. The client has to wait for receipt of the server hello. (Note: we are considering having the server wait until it has received a forward-secure packet before sending any itself. This avoids a stall if the server hello packet is dropped.)
 
 ## <A name="keyderivation"></A> Key derivation
 
+Key material is generated by an HMAC-based key derivation function (HKDF) with hash function  SHA-256.  HKDF (specified in RFC 5869) uses the approved two-step key derivation procedure specified in NIST SP 800-56C.
+
+__Step 1: HKDF-Extract__  
+The output of the key agreement (32 bytes in the case of Curve25519 and P-256) is the premaster secret, which is the input keying material (IKM) for the HKDF-Extract function. The salt input is the client nonce followed by the server nonce (if any).  HKDF-Extract outputs a pseudorandom key (PRK), which is the master secret. The master secret is 32 bytes long if SHA-256 is used.
+
+__Step 2: HKDF-Expand__  
+The PRK input is the master secret. The info input (context and application specific information) is the concatenation of the following data:
+
+1. The label “QUIC key expansion”
+2. An 0x00 byte
+3. The GUID of the connection from the packet layer.
+4. The client hello message
+5. The server config message
+
+Key material is assigned in this order:
+
+1. Client write key.
+2. Server write key.
+3. Client write IV.
+4. Server write IV.
+
+If any primitive requires less than a whole number of bytes of key material, then the remainder of the last byte is discarded.
+
+When the forward-secret keys are derived, the same inputs are used except that info uses the label <CODE>“QUIC forward secure key expansion”</CODE>.
+
 ## <A name="cetv"></A> Client Encrypted Tag Values (CETV)
 
+A client hello may contain a __CETV__ tag in order to specify client certificates, ChannelIDs and other non-public data in the client hello. (That’s in contrast to TLS, which sends client certificates in the clear.)
+
+* The __CETV__ message is serialised and encrypted with the __AEAD__ that is specified in the client hello.
+* The key is derived in the same way as the keys for the connection (see [Key Derivation](#keyderivation), above) except that info uses the label <CODE>“QUIC CETV block”</CODE>.
+* The client hello message used in the derivation is the client hello without the __CETV__ tag.
+* When the connection keys are later derived, the client hello used will include the __CETV__ tag.
+
+The __AEAD__ nonce is always zero, which is safe because only a single message is ever encrypted with the key.
+
+Proving possession of a private key, which is needed for both client certificates and ChannelIDs, is done by signing the HKDF info input that is used in the CETV key derivation.
+
+The __CETV__ message can include the following tags:
+
+* __CIDK__ ChannelID key (optional): a pair of 32-byte, big-endian numbers which, together, specify an (x, y) pair.
+    * This is a point on the P-256 curve and an ECDSA public key.
+* __CIDS__ ChannelID signature (optional): a pair of 32-byte, big-endian numbers which, together, specify the (r, s) pair of an ECDSA signature of the HKDF input.
+
+
 ## <A name="certificatecompression"></A> Certificate Compression
+
+In QUIC, we hope to be able to avoid some round trips by compressing the certificates.
+
+A certificate chain is a series of certificates which, for the purposes of this section, are opaque byte strings. The leaf certificate is always first in the chain and the root CA certificate should never be included.
+
+When serialising a certificate chain in the __CERT__ tag of a rejection message, the server considers what information the client already has. This prior knowledge can come in two forms:
+
+* Possession of bundles of common intermediate certificates,
+    * Expressed as a series of 64-bit, FNV-1a hashes in the __CCS__ tag of the client hello message (__CHLO__).
+    * If both the client and server share at least one common certificate set then certificates that exist in them can simply be referenced.
+* or Cached certificates from prior interactions with the same server.
+    * Expressed as 64-bit, FNV-1a hashes in the __CCRT__ tag of the client hello message (__CHLO__).
+    * If any are still in the certificate chain then they can be replaced by the hash.
+
+Any remaining certificates are gzip compressed with a pre-shared dictionary that consists of the certificates specified by either of the first two methods, and a block of common strings from certificates taken from the Alexa top 5000.
+
+The concrete representation of this is placed into the __CERT__ tag of the rejection message and has the format of a Cert structure in the following TLS presentation style:
+
+```
+enum { end_of_list(0), compressed(1), cached(2), common(3) } EntryType;
+
+struct {
+  EntryType type;
+  select (type) {
+    case compressed:
+      // nothing
+    case cached:
+      opaque hash[8];
+    case common:
+      opaque set_hash[8];
+      uint32 index;
+  }
+} Entry;
+
+struct {
+  Entry entries[];
+  uint32 uncompressed_length;
+  opaque gzip_data[];
+} Certs;
+```
+
+(Recall that numbers are little-endian in QUIC.)
+
+The entries list is terminated by an Entry of type end_of_list, rather than length-prefixed as would be common in TLS. The gzip_data extends to the end of the value.
+
+The gzip, pre-shared dictionary contains the certificates of type compressed or cached, concatenated in reverse order, followed by ~1500 bytes of common substrings that are not given here.
 
 ## <A name="taglist"></A> ANNEX A: Tag list
 
