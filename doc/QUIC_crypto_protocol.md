@@ -81,6 +81,8 @@ The requirement that the tags be strictly monotonic also removes any ambiguity a
 
 ## <A name="clienthandshake"></A> Client Handshake
 
+![QUIC Client Handshake](../img/QUIC_Client_Handshake.png)
+
 Initially the client knows nothing about the server. Before a handshake can be attempted the client will send inchoate client hello messages to elicit a server config and proof of authenticity from the server.
 
 To perform 0-RTT handshake, the client needs to have a server config that has been verified to be authentic.
@@ -129,6 +131,9 @@ Although all the elements of the rejection message are optional, the server must
 
 ## <A name="taglist"></A> ANNEX A: Tag list
 
+Tag list from official Chromium source code:
+[https://chromium.googlesource.com/chromium/src/net/+/master/quic/crypto/crypto_protocol.h](https://chromium.googlesource.com/chromium/src/net/+/master/quic/crypto/crypto_protocol.h)
+
 ### Special tags
 
 These tags have a special form so that they appear either at the beginning or the end of a handshake message. Since handshake messages are sorted by tag value, the tags with 0 at the end will sort first and those with 255 at the end will sort last.
@@ -137,6 +142,7 @@ The certificate chain should have a tag that will cause it to be sorted at the e
 
 Likewise tags with random values should be towards the beginning of the message because the server mightn't hold state for a rejected client hello and therefore the client may have issues reassembling the rejection message in the event that it sent two client hellos.
 
+* __PAD (+ 0x00)__ Padding
 * __SNO (+ 0x00)__ The server's nonce
 * __STK (+ 0x00)__ Source-address token
 * __CRT (+ 0xFF)__ Certificate chain
@@ -246,7 +252,4 @@ Although it would be silly to do so, specifying both __X509__ and __X59R__ is al
 ### Public reset tags
 * __RNON__ Public reset nonce proof
 * __RSEQ__ Rejected sequence number
-
-### Universal tags
-* __PAD__ Padding
 
