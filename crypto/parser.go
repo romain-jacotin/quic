@@ -1,5 +1,7 @@
+// crypto package process crypto protocol messages and crypto handshake
 package crypto
 
+// internal Parser state type
 type parserState uint32
 
 // Constants use to describe current Parser's state
@@ -12,20 +14,29 @@ const (
 
 // Parser is
 type Parser struct {
-	input  chan []byte
+	// input channel containing bytes to parse
+	input chan []byte
+	// output channel for sending parsed crypto.Message
 	output chan *Message
-	state  parserState
-	off    bool
+	// internal Parser state variables that need to be keep when Parser is Start/Stop/Start/ ...
+	state        parserState
+	off          bool
+	needMoreData uint32
+	data         []byte
+	msgTag       MessageTag
+	numEntries   uint16
+	tags         []MessageTag
+	endOffsets   []uint32
+	values       [][]byte
 }
 
 // NewParser is a crypto.Parser factory
 func (*Parser) NewParser() *Parser {
-	p := new(Parser)
-	p.input = make(chan []byte)
-	p.output = make(chan *Message)
-	p.state = sREADMESSAGETAG
-	p.off = true
-	return p
+	return &Parser{
+		input:  make(chan []byte),
+		output: make(chan *Message),
+		state:  sREADMESSAGETAG,
+		off:    true}
 }
 
 // GetInput returns the send only []byte channel
@@ -61,24 +72,81 @@ func (this *Parser) Start() bool {
 
 // RunParser is the core function of the parsing process. It must be launch as a Go routine by the Parser factory.
 func (this *Parser) runParser() {
+	var i, j int
+
+	this.needMoreData = 4
 	for {
 		// Do we need to Stop parsing ?
 		if this.off {
 			return
 		}
 
-		// Read messages fields according to current Parser's state
-		switch this.state {
-		case sREADMESSAGETAG:
-			break
-		case sREADNUMBERENTRIES:
-			break
-		case sREADTAGSANDOFFSETS:
-			break
-		case sREADVALUES:
-			break
+		// While not enough data in ringbuffer, append from input channel
+		for this.needMoreData > uint32(len(this.data)) {
+			this.data = append(this.data, <-this.input...)
 		}
 
-		// Append buffer if pending byte[] in input channel
+		// Read messages fields according to current Parser's state
+		switch this.state {
+		case sREADMESSAGETAG: // Read 4 bytes
+			// Read uint32 message tag
+			this.msgTag = MessageTag(this.data[0]) + MessageTag(this.data[1]>>8) + MessageTag(this.data[2]>>16) + MessageTag(this.data[3]>>24)
+			// Advance reading slice of []byte
+			this.data = this.data[4:]
+			// Advance state
+			this.state = sREADNUMBERENTRIES
+			// Ask for next data size
+			this.needMoreData = 4
+			break
+		case sREADNUMBERENTRIES: // Read 2+2 bytes
+			// Read uint16 number of entries and ignore next uint16 of padding
+			this.numEntries = uint16(this.data[0]) + (uint16(this.data[1]) << 8)
+			// Advance reading slice of []byte
+			this.data = this.data[4:]
+			// Advance state
+			this.state = sREADTAGSANDOFFSETS
+			// Ask for next data size
+			this.needMoreData = uint32(8 * this.numEntries)
+			break
+		case sREADTAGSANDOFFSETS: // Read numentries*(4+4)
+			// Allocate ressources for tag-offset pairs
+			this.tags = make([]MessageTag, this.numEntries)
+			this.endOffsets = make([]uint32, this.numEntries)
+			for i = 0; i < int(this.numEntries); i++ {
+				j = i << 3
+				// Read uint32 tag
+				this.tags[i] = MessageTag(this.data[j]) + (MessageTag(this.data[j+1]) << 8) + (MessageTag(this.data[j+2]) << 16) + (MessageTag(this.data[j+3]) << 24)
+				// Read uint32 offset
+				this.endOffsets[i] = uint32(this.data[j]) + (uint32(this.data[j+1]) << 8) + (uint32(this.data[j+2]) << 16) + (uint32(this.data[j+3]) << 24)
+			}
+			// Advance reading slice of []byte
+			this.data = this.data[this.numEntries*8:]
+			// Advance state
+			this.state = sREADVALUES
+			// Ask for next data size
+			this.needMoreData = this.endOffsets[this.numEntries-1]
+			break
+		case sREADVALUES:
+			// Allocate ressources for tag-value pairs
+			this.tags = make([]MessageTag, this.numEntries)
+			// Read values
+			j = 0
+			for i = 0; i < int(this.numEntries); i++ {
+				this.values[i] = this.data[j:this.endOffsets[i]]
+				j = int(this.endOffsets[i])
+			}
+			// Advance reading slice of []byte
+			this.data = this.data[this.endOffsets[this.numEntries-1]:]
+			// Advance state
+			this.state = sREADMESSAGETAG
+			// Ask for next data size
+			this.needMoreData = 4
+			// Put Message on the output channel
+			this.output <- &Message{
+				msgTag: this.msgTag,
+				tags:   this.tags,
+				values: this.values}
+			break
+		}
 	}
 }

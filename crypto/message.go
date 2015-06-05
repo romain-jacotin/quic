@@ -2,6 +2,10 @@ package crypto
 
 type MessageTag uint32
 
+// Maximum numer of entries in a Message
+const MaxNumEntries = 128
+
+// QUIC tag values
 const (
 	// Client message tag
 	TagCHLO = 'C' + ('H' << 8) + ('L' << 16) + ('O' << 24) // Client Hello message tag
@@ -67,7 +71,7 @@ const (
 
 // Message struct containing message tag value and associated ta-values pairs
 type Message struct {
-	mtag   MessageTag
+	msgTag MessageTag
 	tags   []MessageTag
 	values [][]byte
 }
@@ -78,7 +82,7 @@ func NewMessage(messagetag MessageTag, tags []MessageTag, values [][]byte) *Mess
 		return nil
 	}
 	m := new(Message)
-	m.mtag = messagetag
+	m.msgTag = messagetag
 	m.tags = tags
 	m.values = values
 	return m
@@ -86,7 +90,7 @@ func NewMessage(messagetag MessageTag, tags []MessageTag, values [][]byte) *Mess
 
 // Tag return the message tag of the crypto.Message
 func (this *Message) GetMessageTag() MessageTag {
-	return this.mtag
+	return this.msgTag
 }
 
 // Tag return the message tag of the crypto.Message
