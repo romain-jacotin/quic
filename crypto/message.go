@@ -16,14 +16,20 @@ const (
 	TagREJ  = 'R' + ('E' << 8) + ('J' << 16) + (0 << 24)   // Server Rejection message tag
 	TagSCUP = 'S' + ('C' << 8) + ('U' << 16) + ('P' << 24) // Server Config Update message tag can be used only after handshake complete
 
-	// Content tags
+	// Content tags that can be see both on CHLO and REJ
+	TagVERS = 'V' + ('E' << 8) + ('R' << 16) + ('S' << 24) // Version
 	TagPAD  = 'P' + ('A' << 8) + ('D' << 16) + (0 << 24)   // Padding tag
-	TagSNI  = 'S' + ('N' << 8) + ('I' << 16) + (0 << 24)   // Server Name Indication
 	TagSTK  = 'S' + ('T' << 8) + ('K' << 16) + (0 << 24)   // Source-address Token
+
+	// Client tags in CHLO
+	TagSNI  = 'S' + ('N' << 8) + ('I' << 16) + (0 << 24)   // Server Name Indication
 	TagPDMD = 'P' + ('D' << 8) + ('M' << 16) + ('D' << 24) // Proof demand
+	TagX509 = 'X' + ('5' << 8) + ('0' << 16) + ('9' << 24) //     X.509 certificate, all key types
+	TagX59R = 'X' + ('5' << 8) + ('9' << 16) + ('R' << 24) //     X.509 certificate, RSA keys only
 	TagCCS  = 'C' + ('C' << 8) + ('S' << 16) + (0 << 24)   // Common Certificates Sets
 	TagCCRT = 'C' + ('C' << 8) + ('R' << 16) + ('T' << 24) // Cached Certificates
-	TagVERS = 'V' + ('E' << 8) + ('R' << 16) + ('S' << 24) // Version
+
+	// Server tags in REJ
 	TagSCFG = 'S' + ('C' << 8) + ('F' << 16) + ('G' << 24) // Server Config
 	TagSNO  = 'S' + ('N' << 8) + ('O' << 16) + (0 << 24)   // Server Nonce
 	TagCRT  = 'C' + ('R' << 8) + ('T' << 16) + (255 << 24) // Certificate Chain
@@ -48,9 +54,6 @@ const (
 	TagCETV = 'C' + ('E' << 8) + ('T' << 16) + ('V' << 24) // Client Encrypted Tag-Values :
 	TagCIDK = 'C' + ('I' << 8) + ('D' << 16) + ('K' << 24) //     ChannelID key, a pair of 32-bytes big-endian numbers  which together specify an (x,y) pair = point on P-256 curve and an ECDSA public key
 	TagCIDS = 'C' + ('I' << 8) + ('D' << 16) + ('S' << 24) //     ChannelID signature, a pair of 32-bytes big-endian numbers which together specify the (r,s) pair of an ECDSA signature of the HKDF input
-
-	TagX509 = 'X' + ('5' << 8) + ('0' << 16) + ('9' << 24) // X.509 certificate, all key types
-	TagX59R = 'X' + ('5' << 8) + ('9' << 16) + ('R' << 24) // X.509 certificate, RSA keys only
 
 	TagRREJ = 'R' + ('R' << 8) + ('E' << 16) + ('J' << 24) // Reasons for server sending rejection message tag
 	TagCADR = 'C' + ('A' << 8) + ('D' << 16) + ('R' << 24) // Client IP address and port

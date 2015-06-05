@@ -37,10 +37,11 @@ type Parser struct {
 // NewParser is a crypto.Parser factory.
 func NewParser() *Parser {
 	return &Parser{
-		input:  make(chan []byte),
-		output: make(chan *Message),
-		state:  sREADMESSAGETAG,
-		off:    true}
+		input:        make(chan []byte),
+		output:       make(chan *Message),
+		state:        sREADMESSAGETAG,
+		off:          true,
+		needMoreDate: 4}
 }
 
 // GetInput returns the send only []byte input channel.
@@ -74,11 +75,10 @@ func (this *Parser) Start() bool {
 	return false
 }
 
-// RunParser is the core function of the parsing process. It must be launch as a Go routine by the Parser factory.
+// RunParser is the core function of the parsing process. It must only be launch as a Go routine by the Start function.
 func (this *Parser) runParser() {
 	var i, j int
 
-	this.needMoreData = 4
 	for {
 		// Do we need to Stop parsing ?
 		if this.off {

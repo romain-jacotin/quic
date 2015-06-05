@@ -112,7 +112,7 @@ Rejection message have the tag __REJ__ and contain the following tag/value pairs
 * __SCFG__ (optional) Server's Serialized Config
 * __STK__ (optional) opaque byte string that the client must echo in future hello messages
 * __SNO__ (optional) Server Nonce that the client should echo in any future (full) CHLO message
-* __??__ (optional) Certificate Chain
+* __CRT__ (optional) Certificate Chain
 * __PROF__ (optional) Proof of Authenticity, in cas of X509, a signature of the server config by the public key in the leaf certificate. The format of the signature is currently fixed by the type of public key:
     * __RSA__ RSA-PSS-SHA256
     * __ECDSA__ ECDSA-SHA256
