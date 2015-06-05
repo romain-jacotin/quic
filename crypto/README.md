@@ -1,6 +1,6 @@
 [![GoDoc](https://godoc.org/github.com/romain-jacotin/quic/crypto?status.svg)](https://godoc.org/github.com/romain-jacotin/quic/crypto)
 
-# QUIC crypto Protocol in Go language
+# QUIC Crypto Protocol in Go language
 
 Work in progress on the crypto protocol and crypto handshake in Golang.
 
@@ -14,3 +14,8 @@ Work in progress on the crypto protocol and crypto handshake in Golang.
     * [https://groups.google.com/a/chromium.org/forum/#!forum/proto-quic](https://groups.google.com/a/chromium.org/forum/#!forum/proto-quic)
 
 ----------------------
+
+## Table of Contents
+
+* [ANNEX A: Extracts from QUIC Crypto Protocol](../doc/QUIC_crypto_protocol.md)
+
