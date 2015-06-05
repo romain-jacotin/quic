@@ -1,10 +1,10 @@
 // crypto package process crypto protocol messages and crypto handshake
 package crypto
 
-// internal Parser state type
+// internal Parser state's type.
 type parserState uint32
 
-// Constants use to describe current Parser's state
+// Constants use to describe current Parser's state.
 const (
 	sREADMESSAGETAG = iota
 	sREADNUMBERENTRIES
@@ -12,7 +12,11 @@ const (
 	sREADVALUES
 )
 
-// Parser is
+// Parser is a crypto.Message parser that takes slices of bytes on its input channel and sends out crypto.Message(s) on its output channel.
+//
+// It handles the case where a crypto message is on multiple slices of bytes.
+//
+// When the Parser encounters a non valid crypto.Message a nil value is sends on its output channel.
 type Parser struct {
 	// input channel containing bytes to parse
 	input chan []byte
@@ -30,8 +34,8 @@ type Parser struct {
 	values       [][]byte
 }
 
-// NewParser is a crypto.Parser factory
-func (*Parser) NewParser() *Parser {
+// NewParser is a crypto.Parser factory.
+func NewParser() *Parser {
 	return &Parser{
 		input:  make(chan []byte),
 		output: make(chan *Message),
@@ -39,17 +43,17 @@ func (*Parser) NewParser() *Parser {
 		off:    true}
 }
 
-// GetInput returns the send only []byte channel
+// GetInput returns the send only []byte input channel.
 func (this *Parser) GetInput() chan<- []byte {
 	return this.input
 }
 
-// GetOutput returns the receveive only crypto.Message channel
+// GetOutput returns the receveive only crypto.Message output channel.
 func (this *Parser) GetOutput() <-chan *Message {
 	return this.output
 }
 
-// Stop method stops the Parser
+// Stop method stops the Parser.
 // The boolean value return is not an error and just in fact an indication about the state of the Parser before the call.
 func (this *Parser) Stop() bool {
 	if this.off {
@@ -101,6 +105,10 @@ func (this *Parser) runParser() {
 		case sREADNUMBERENTRIES: // Read 2+2 bytes
 			// Read uint16 number of entries and ignore next uint16 of padding
 			this.numEntries = uint16(this.data[0]) + (uint16(this.data[1]) << 8)
+			if this.numEntries > MaxNumEntries {
+				this.off = true
+				this.output <- nil
+			}
 			// Advance reading slice of []byte
 			this.data = this.data[4:]
 			// Advance state

@@ -1,11 +1,12 @@
 package crypto
 
+// MessageTag is the type definition for message's tag, and tags in tag-value pairs.
 type MessageTag uint32
 
-// Maximum numer of entries in a Message
+// MaxNumEntries is the maximum numer of entries supported in a crypto.Message.
 const MaxNumEntries = 128
 
-// QUIC tag values
+// QUIC tag values.
 const (
 	// Client message tag
 	TagCHLO = 'C' + ('H' << 8) + ('L' << 16) + ('O' << 24) // Client Hello message tag
@@ -13,7 +14,7 @@ const (
 	// Server message tag
 	TagSHLO = 'S' + ('H' << 8) + ('L' << 16) + ('O' << 24) // Server Hello message tag
 	TagREJ  = 'R' + ('E' << 8) + ('J' << 16) + (0 << 24)   // Server Rejection message tag
-	TAGSCUP = 'S' + ('C' << 8) + ('U' << 16) + ('P' << 24) // Server Config Update message tag can be used only after handshake complete
+	TagSCUP = 'S' + ('C' << 8) + ('U' << 16) + ('P' << 24) // Server Config Update message tag can be used only after handshake complete
 
 	// Content tags
 	TagPAD  = 'P' + ('A' << 8) + ('D' << 16) + (0 << 24)   // Padding tag
@@ -69,36 +70,53 @@ const (
 // new Tag = '' + ('' << 8) + ('' << 16) + ('' << 24) //
 )
 
-// Message struct containing message tag value and associated ta-values pairs
+// A crypto.Message that contains message tag value and associated tag-values pairs.
 type Message struct {
 	msgTag MessageTag
 	tags   []MessageTag
 	values [][]byte
 }
 
-// NewMessage is a Message factory
-func NewMessage(messagetag MessageTag, tags []MessageTag, values [][]byte) *Message {
+// NewMessage is a crypto.Message factory.
+//
+// Only TagCHLO, TagREJ, TagSHLO and TagSCUP are valids 'messageTag' values.
+//
+// 'tags' and 'values' must have the same length, and this length must be less or equal than 'MaxNumEntries' value.
+//
+// NewMessage returns a nil value in case of invalid inputs.
+func NewMessage(messageTag MessageTag, tags []MessageTag, values [][]byte) *Message {
 	if len(tags) != len(values) {
 		return nil
 	}
-	m := new(Message)
-	m.msgTag = messagetag
-	m.tags = tags
-	m.values = values
-	return m
+	if len(tags) > MaxNumEntries {
+		return nil
+	}
+	switch messageTag {
+	case TagCHLO, TagREJ, TagSHLO, TagSCUP:
+		return &Message{
+			msgTag: messageTag,
+			tags:   tags,
+			values: values}
+	}
+	return nil
 }
 
-// Tag return the message tag of the crypto.Message
+// GetMessageTag return the message tag of the crypto.Message.
 func (this *Message) GetMessageTag() MessageTag {
 	return this.msgTag
 }
 
-// Tag return the message tag of the crypto.Message
+// IsMessageTag return true if this crypto.Message is of the requested tag type, and return false otherwise.
+func (this *Message) IsMessageTag(tag MessageTag) bool {
+	return this.msgTag == tag
+}
+
+// GetNumEntries return the number of entries in the crypto.Message.
 func (this *Message) GetNumEntries() uint16 {
 	return uint16(len(this.tags))
 }
 
-// Contains method return 'true' and the associated tag value []byte if the message contains the requested tag, otherwise returns 'false' and nil
+// Contains method return 'true' and the associated tag value []byte if the message contains the requested tag, otherwise returns 'false' and nil.
 func (this *Message) Contains(t MessageTag) (bool, []byte) {
 	for i, v := range this.tags {
 		if v == t {
@@ -106,4 +124,55 @@ func (this *Message) Contains(t MessageTag) (bool, []byte) {
 		}
 	}
 	return false, nil
+}
+
+// IsValid verifies that the message type associated tag-value pairs are valids and returns true in that case, otherwise returns false.
+func (this *Message) IsValid() bool {
+	if len(this.tags) != len(this.values) {
+		return false
+	}
+	if len(this.tags) > MaxNumEntries {
+		return false
+	}
+	switch this.msgTag {
+	case TagCHLO, TagREJ, TagSHLO, TagSCUP:
+		return true
+	}
+	return false
+}
+
+// IsValidCHLO verifies that CHLO associated tag-value pairs are valids and returns true in that case, otherwise returns false.
+func (this *Message) IsValidCHLO() bool {
+	if this.msgTag != TagCHLO {
+		return false
+	}
+	// TODO: add more tests
+	return true
+}
+
+// IsValidREJ verifies that REJ associated tag-value pairs are valids and returns true in that case, otherwise returns false.
+func (this *Message) IsValidREJ() bool {
+	if this.msgTag != TagREJ {
+		return false
+	}
+	// TODO: add more tests
+	return true
+}
+
+// IsValidSHLO verifies that SHLO associated tag-value pairs are valids and returns true in that case, otherwise returns false.
+func (this *Message) IsValidSHLO() bool {
+	if this.msgTag != TagSHLO {
+		return false
+	}
+	// TODO: add more tests
+	return true
+}
+
+// IsValidSCUP verifies that SCUP type associated tag-value pairs are valids and returns true in that case, otherwise returns false.
+func (this *Message) IsValidSCUP() bool {
+	if this.msgTag != TagSCUP {
+		return false
+	}
+	// TODO: add more tests
+	return true
 }
