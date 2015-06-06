@@ -21,6 +21,7 @@ Work in progress on the crypto protocol and crypto handshake in Golang.
 * [Parsing crypto message](#parsing)
 * [The Crypto Handshake](#handshake)
 * [ANNEX A: Extracts from QUIC Crypto Protocol](../doc/QUIC_crypto_protocol.md)
+* [ANNEX B: Extracts from RFC5869 - HMAC-based Key Derivation Function (HKDF)](../doc/HKDF.md)
 
 ## <A name="overview"></A> Overview
 
@@ -37,16 +38,19 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
     * __QUIC Server__
         * must respond only to unique __CHLO__ message with the following crypto message:
             * __REJ message__ : this is a stateless answer from the server, so QUIC Client must retry a new QUIC Connection with the new informations provided in the REJ response to move forward.
-                * Violation to the following rules causes a REJ response from the QUIC server:
-                    * __CHLO__ does not fit into a single QUIC packet
-                    * QUIC version not supported
+                * Following checks causes a REJ response from the QUIC server:
+                    * Message received from the client is not a Client Hello (__CHLO__)
+                    * Client Hello does not fit into a single QUIC packet (__CHLO__)
+                    * QUIC version is missing (__VERS__)
+                    * QUIC version not supported (__VERS__)
+                    * Server config ID is missing (__SCID__)
+                    * Bad Server config ID (__SCID__)
                     * Source-address Token is missing (__STK__)
                     * Bad Source-address Token (__STK__)
+                    * Authenticated encryption algorithms is missing (__AEAD__)
                     * Authenticated encryption algorithms not supported (__AEAD__)
+                    * Key Exchange algorithms is missing (__KEXS__)
                     * Key Exchange algorithms not supported (__KEXS__)
-                    * Client nonce is missing (__NONC__)
-                    * Bad client nonce (__NONC__)
-                    * Server nonce is missing, if advertised by the server (__SNO__)
                     * Client’s public value is missing (__PUBS__)
                     * Bad client’s public value (__PUBS__)
                     * Bad client encrypted tag-values, if provided (__CETV__)

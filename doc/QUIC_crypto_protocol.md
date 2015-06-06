@@ -21,6 +21,7 @@ Extracts from official __QUIC Crypto__ document:
 * [Client Encrypted Tag Values (CETV)](#cetv)
 * [Certificate Compression](#certificatecompression)
 * [ANNEX A: Tag list](#taglist)
+* [ANNEX B: Extracts from RFC5869 - HMAC-based Key Derivation Function (HKDF)](../doc/HKDF.md)
 
 ## <A name="overview"></A> Overview
 
