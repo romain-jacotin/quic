@@ -56,10 +56,10 @@ HKDF-Extract(salt, IKM) -> PRK
     * <CODE>Hash</CODE> a hash function
     * <CODE>HashLen</CODE> denotes the length of the hash function output in octets
 * __Inputs__
-    * <CODE>salt</CODE> optional salt value (a non-secret random value); if not provided, it is set to a string of HashLen zeros.
+    * <CODE>salt</CODE> optional salt value (a non-secret random value); if not provided, it is set to a string of <CODE>HashLen</CODE> zeros.
     * <CODE>IKM</CODE> input keying material
 * __Output__
-    * <CODE>PRK</CODE> a pseudorandom key (of HashLen octets)
+    * <CODE>PRK</CODE> a pseudorandom key (of <CODE>HashLen</CODE> octets)
 
 The output <CODE>PRK</CODE> is calculated as follows:
 
@@ -67,7 +67,7 @@ The output <CODE>PRK</CODE> is calculated as follows:
 PRK = HMAC-Hash(salt, IKM)
 ```
 
- ### <A name="expand"></A> Step 2: Expand
+### <A name="expand"></A> Step 2: Expand
 
 ```
 HKDF-Expand(PRK, info, L) -> OKM
@@ -106,7 +106,7 @@ This section contains a set of guiding principles regarding the use of HKDF.
 
 A much more extensive account of such principles and design rationale can be found in ["Cryptographic Extraction and Key Derivation: The HKDF Scheme"](http://eprint.iacr.org/2010/264)
 
- ### <A name="salt"></A> To Salt or not to Salt
+### <A name="salt"></A> To Salt or not to Salt
 
 * HKDF is defined to operate with and without random salt.
 
@@ -138,7 +138,7 @@ For example, <CODE>info</CODE> may contain a protocol number, algorithm identifi
 
 ### <A name="skip"></A> To Skip or not to Skip
 
-In some applications, the input key material <CODE>IKM</CODE> may already be present as a cryptographically strong key (for example, the premaster secret in TLS RSA cipher suites would be a pseudorandom string, except for the first two octets). In this case, one can skip the extract part and use IKM directly to key HMAC in the expand step. On the other hand, applications may still use the extract part for the sake of compatibility with the general case. In particular, if IKM is random (or pseudorandom) but longer than an HMAC key, the extract step can serve to output a suitable HMAC key (in the case of HMAC this shortening via the extractor is not strictly necessary since HMAC is defined to work with long keys too). Note, however, that if the IKM is a Diffie-Hellman value, as in the case of TLS with Diffie-Hellman, then the extract part SHOULD NOT be skipped. Doing so would result in using the Diffie-Hellman value g^{xy} itself (which is NOT a uniformly random or pseudorandom string) as the key PRK for HMAC.
+In some applications, the input key material <CODE>IKM</CODE> may already be present as a cryptographically strong key (for example, the premaster secret in TLS RSA cipher suites would be a pseudorandom string, except for the first two octets). In this case, one can skip the extract part and use <CODE>IKM</CODE> directly to key HMAC in the expand step. On the other hand, applications may still use the extract part for the sake of compatibility with the general case. In particular, if <CODE>IKM</CODE> is random (or pseudorandom) but longer than an HMAC key, the extract step can serve to output a suitable HMAC key (in the case of HMAC this shortening via the extractor is not strictly necessary since HMAC is defined to work with long keys too). Note, however, that if the <CODE>IKM</CODE> is a Diffie-Hellman value, as in the case of TLS with Diffie-Hellman, then the extract part SHOULD NOT be skipped. Doing so would result in using the Diffie-Hellman value <CODE>g^{xy}</CODE> itself (which is NOT a uniformly random or pseudorandom string) as the key <CODE>PRK</CODE> for HMAC.
 
 Instead, HKDF should apply the extract step to <CODE>g^{xy}</CODE> (preferably with a <CODE>salt</CODE> value) and use the resultant <CODE>PRK</CODE> as a key to HMAC in the expansion part.
 
@@ -146,11 +146,11 @@ In the case where the amount of required key bits, <CODE>L</CODE>, is no more th
 
 ### <A name="independence"></A> The Role of Independence
 
-The analysis of key derivation functions assumes that the input keying material (IKM) comes from some source modeled as a probability distribution over bit streams of a certain length (e.g., streams produced by an entropy pool, values derived from Diffie-Hellman exponents chosen at random, etc.); each instance of IKM is a sample from that distribution.
+The analysis of key derivation functions assumes that the <CODE>IKM</CODE> comes from some source modeled as a probability distribution over bit streams of a certain length (e.g., streams produced by an entropy pool, values derived from Diffie-Hellman exponents chosen at random, etc.); each instance of <CODE>IKM</CODE> is a sample from that distribution.
 
-* A major goal of key derivation functions is to ensure that, when applying the KDF to any two values IKM and IKM’ sampled from the (same) source distribution, the resultant keys OKM and OKM’ are essentially independent of each other (in a statistical or computational sense).
+* A major goal of key derivation functions is to ensure that, when applying the KDF to any two values <CODE>IKM</CODE> and <CODE>IKM’</CODE> sampled from the (same) source distribution, the resultant keys <CODE>OKM</CODE> and <CODE>OKM’</CODE> are essentially independent of each other (in a statistical or computational sense).
     * To achieve this goal, it is important that inputs to KDF are selected from appropriate input distributions and also that inputs are chosen independently of each other (technically, it is necessary that each sample will have sufficient entropy, even when conditioned on other inputs to KDF).
 * Independence is also an important aspect of the salt value provided to a KDF.
-    * While there is no need to keep the salt secret, and the same salt value can be used with multiple <CODE>IKM</CODE> values, it is assumed that <CODE>salt</CODE> values are independent of the input keying material. In particular, an application needs to make sure that <CODE>salt</CODE> values are not chosen or manipulated by an attacker.
-    * As an example, consider the case (as in __IKE__) where the salt is derived from nonces supplied by the parties in a key exchange protocol. Before the protocol can use such salt to derive keys, it needs to make sure that these nonces are authenticated as coming from the legitimate parties rather than selected by the attacker (in IKE, for example this authentication is an integral part of the authenticated Diffie-Hellman exchange).
+    * While there is no need to keep the <CODE>salt</CODE> secret, and the same <CODE>salt</CODE> value can be used with multiple <CODE>IKM</CODE> values, it is assumed that <CODE>salt</CODE> values are independent of the <CODE>IKM</CODE>. In particular, an application needs to make sure that <CODE>salt</CODE> values are not chosen or manipulated by an attacker.
+    * As an example, consider the case (as in __IKE__) where the <CODE>salt</CODE> is derived from nonces supplied by the parties in a key exchange protocol. Before the protocol can use such <CODE>salt</CODE> to derive keys, it needs to make sure that these nonces are authenticated as coming from the legitimate parties rather than selected by the attacker (in IKE, for example this authentication is an integral part of the authenticated Diffie-Hellman exchange).
 
