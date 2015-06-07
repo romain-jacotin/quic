@@ -20,6 +20,7 @@ Work in progress on the crypto protocol and crypto handshake in Golang.
 * [Overview](#overview)
 * [Parsing crypto message](#parsing)
 * [The Crypto Handshake](#handshake)
+* [Key Derivation](#keyderivation)
 * [ANNEX A: Extracts from QUIC Crypto Protocol](../doc/QUIC_crypto_protocol.md)
 * [ANNEX B: Extracts from RFC5869 - HMAC-based Key Derivation Function (HKDF)](../doc/HKDF.md)
 
@@ -40,13 +41,17 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
             * __REJ message__ : this is a stateless answer from the server, so QUIC Client must retry a new QUIC Connection with the new informations provided in the REJ response to move forward.
                 * Following checks causes a REJ response from the QUIC server:
                     * Message received from the client is not a Client Hello (__CHLO__)
-                    * Client Hello does not fit into a single QUIC packet (__CHLO__)
+                    * Client Hello is too small (__CHLO__)
+                    * Client Hello does not fit into a single QUIC Frame/Packet (__CHLO__)
                     * QUIC version is missing (__VERS__)
                     * QUIC version not supported (__VERS__)
+                    * Bad Server Name Indication (__SNI__)
                     * Server config ID is missing (__SCID__)
                     * Bad Server config ID (__SCID__)
                     * Source-address Token is missing (__STK__)
                     * Bad Source-address Token (__STK__)
+                    * Client nonce is missing (__NONC__)
+                    * Bad client nonce, size not equal to 32 bytes (__NONC__)
                     * Authenticated encryption algorithms is missing (__AEAD__)
                     * Authenticated encryption algorithms not supported (__AEAD__)
                     * Key Exchange algorithms is missing (__KEXS__)
@@ -55,9 +60,30 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
                     * Bad client’s public value (__PUBS__)
                     * Bad client encrypted tag-values, if provided (__CETV__)
             * __SHLO message__ :
+                * Following tags must be included:
+                    * __VERS__
+                    * __PUBS__
+                * Server has the oppotunity to send a new __STK__ (optional)
+
 * After crypto handshahe complete:
     * __QUIC Client__
         * CAN'T send any crypto message: any single byte of data on Stream ID=1 cause QUIC Connection termination
     * __QUIC Server__
         * can only send one message type
             * __SCUP message__ : to notify the Client about the Server config update
+
+## <A name="keyderivation"></A> Key Derivation
+
+
+salt = CNON + SNO
+IKM  = computeKEXS()
+PRK  = HDKF-Extract(salt, IKM) // Step 1: Extract a master secret key of 32 bytes by using HMAC function SHA-256(salt)
+
+info = "QUIC key expansion" + 0x00 + CID + CHLO_message + SCFG_message
+L = 
+OKM = HDKF-Expanf(PRK, info, L) // Step 2: Expand output key material of ? bytes by using HMAC function SHA-256(salt)
+clientWriteKey = OKM[0:32]
+serverWriteKey = OKM[32:64]
+clientWriteIV  = OKM[64:?]
+serverWriteIV  = OKM[?:?]
+

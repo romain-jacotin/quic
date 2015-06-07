@@ -41,7 +41,7 @@ func NewParser() *Parser {
 		output:       make(chan *Message),
 		state:        sREADMESSAGETAG,
 		off:          true,
-		needMoreDate: 4}
+		needMoreData: 4}
 }
 
 // GetInput returns the send only []byte input channel.

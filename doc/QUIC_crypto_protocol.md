@@ -178,7 +178,7 @@ The output of the key agreement (32 bytes in the case of Curve25519 and P-256) i
 __Step 2: HKDF-Expand__  
 The PRK input is the master secret. The info input (context and application specific information) is the concatenation of the following data:
 
-1. The label “QUIC key expansion”
+1. The label <CODE>“QUIC key expansion”</CODE>
 2. An 0x00 byte
 3. The GUID of the connection from the packet layer.
 4. The client hello message
