@@ -74,16 +74,31 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
 
 ## <A name="keyderivation"></A> Key Derivation
 
+__Step 1__: Extract a master secret key of 32 bytes by using HMAC function SHA-256(salt)
 
+```{go}
+// inputs
 salt = CNON + SNO
-IKM  = computeKEXS()
-PRK  = HDKF-Extract(salt, IKM) // Step 1: Extract a master secret key of 32 bytes by using HMAC function SHA-256(salt)
+IKM  = KEXS(PUBS)
 
-info = "QUIC key expansion" + 0x00 + CID + CHLO_message + SCFG_message
-L = 
-OKM = HDKF-Expanf(PRK, info, L) // Step 2: Expand output key material of ? bytes by using HMAC function SHA-256(salt)
-clientWriteKey = OKM[0:32]
-serverWriteKey = OKM[32:64]
-clientWriteIV  = OKM[64:?]
-serverWriteIV  = OKM[?:?]
+// output
+PRK = HDKF-Extract(salt, IKM)
+```
 
+__Step 2__: Expand output key material by using HMAC function SHA-256(salt)
+
+```{go}
+// inputs
+PRK // obtain from Step 1
+info = []byte{"QUIC key expansion"} + []byte{0x00} + byte[]{CID} + []byte{CHLO_message} + []byte{SCFG_message}
+L    = 2*AEAD_key_size + 2* AEAD_nonce_size
+
+// output:
+OKM = HDKF-Expand(PRK, info, L)
+
+// OKM, the Output Keying Material is a []byte used like this:
+clientWriteKey = OKM[   0                               : AEAD_key_size                       ]
+serverWriteKey = OKM[   AEAD_key_size                   : 2*AEAD_key_size                     ]
+clientWriteIV  = OKM[ 2*AEAD_key_size                   : 2*AEAD_key_size +   AEAD_nonce_size ]
+serverWriteIV  = OKM[ 2*AEAD_key_size + AEAD_nonce_size : 2*AEAD_key_size + 2*AEAD_nonce_size ]
+```
