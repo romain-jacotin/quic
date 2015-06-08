@@ -10,7 +10,7 @@ type KeyExchange interface {
 	// GetPublicKey generates local private/public keys pair and returns the local public key that should be sent to the remote host.
 	GetPublicKey() []byte
 	// ComputeSharedKey computes and returns the shared key based on the local private key and the remote public key described in input.
-	ComputeSharedKey([]byte) []byte
+	ComputeSharedKey([]byte) (error, []byte)
 }
 
 // NewKeyExchange is a KeyExchange factory that returns the KeyExchange algorithm corresponding to the MessageTag given in input.

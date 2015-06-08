@@ -16,6 +16,6 @@ func (this *curve25519) GetPublicKey() []byte {
 }
 
 // ComputeSharedKey computes and returns the shared key based on the local private key and the remote public key described in input.
-func (this *curve25519) ComputeSharedKey([]byte) []byte {
-	return nil
+func (this *curve25519) ComputeSharedKey([]byte) (error, []byte) {
+	return nil, nil
 }
