@@ -76,25 +76,25 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
 
 __Step 1__: Extract a master secret key of 32 bytes by using HMAC function SHA-256(salt)
 
-```{go}
+```
 // inputs
 salt = CNON + SNO
 IKM  = KEXS(PUBS)
 
 // output
-PRK = HDKF-Extract(salt, IKM)
+PRK = HDKF_Extract(salt, IKM)
 ```
 
 __Step 2__: Expand output key material by using HMAC function SHA-256(salt)
 
-```{go}
+```
 // inputs
 PRK // obtain from Step 1
 info = []byte{"QUIC key expansion"} + []byte{0x00} + byte[]{CID} + []byte{CHLO_message} + []byte{SCFG_message}
 L    = 2*AEAD_key_size + 2* AEAD_nonce_size
 
 // output:
-OKM = HDKF-Expand(PRK, info, L)
+OKM = HDKF_Expand(PRK, info, L)
 
 // OKM, the Output Keying Material is a []byte used like this:
 clientWriteKey = OKM[   0                               : AEAD_key_size                       ]

@@ -37,13 +37,13 @@ const (
 	TagSCID = 'S' + ('C' << 8) + ('I' << 16) + ('D' << 24) // Server Config ID
 
 	TagKEXS = 'K' + ('E' << 8) + ('X' << 16) + ('S' << 24) // Key Exchange algorithms :
-	TagNULL = 'N' + ('U' << 8) + ('L' << 16) + ('L' << 24) //     null algorithm = no encryption with FNV1A-128 12-byte tag
 	TagC255 = 'C' + ('2' << 8) + ('5' << 16) + ('5' << 24) //     Curve25519
 	TagP256 = 'P' + ('2' << 8) + ('5' << 16) + ('6' << 24) //     P-256
 
 	TagPUBS = 'P' + ('U' << 8) + ('B' << 16) + ('S' << 24) // List of public values, 24-bit little endian length prefixed, in same order as in KEXS
 
 	TagAEAD = 'A' + ('E' << 8) + ('A' << 16) + ('D' << 24) // Authenticated Encryption algorithms :
+	TagNULL = 'N' + ('U' << 8) + ('L' << 16) + ('L' << 24) //     null algorithm = no encryption with FNV1A-128 12-byte tag
 	TagAESG = 'A' + ('E' << 8) + ('S' << 16) + ('G' << 24) //     AES-GCM with 12-byte tag
 	TagS20P = 'S' + ('2' << 8) + ('0' << 16) + ('P' << 24) //     Salsa20 with Poly1305
 

@@ -57,8 +57,8 @@ func NewHKDF(salt, ikm, info []byte, keysize, noncesize int) (error, *HKDF) {
 
 	return nil, &HKDF{
 		clientWriteKey:   okm[0:keysize],
-		clientWriteNonce: okm[keysize : keysize+noncesize],
-		serverWriteKey:   okm[keysize+noncesize : 2*keysize+noncesize],
+		clientWriteNonce: okm[keysize : 2*keysize],
+		serverWriteKey:   okm[2*keysize : 2*keysize+noncesize],
 		serverWriteNonce: okm[2*keysize+noncesize : 2*keysize+2*noncesize]}
 }
 
