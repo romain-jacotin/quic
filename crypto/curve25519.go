@@ -18,7 +18,6 @@ func NewECDH_Curve25519() (err error, keyexchange KeyExchange) {
 		return
 	}
 	curve25519.ScalarBaseMult(&c.publicKey, &c.privateKey)
-	curve25519.ScalarBaseMult(&c.publicKey, &c.privateKey)
 	return nil, c
 }
 

@@ -74,7 +74,7 @@ The crypto protocol on Stream Id=1 must be handle with the following constraints
 
 ## <A name="keyderivation"></A> Key Derivation
 
-__Step 1__: Extract a master secret key of 32 bytes by using HMAC function SHA-256(salt)
+__Step 1__: Extract a master secret key of 32 bytes by using HMAC function SHA-256
 
 ```
 // inputs
@@ -85,7 +85,7 @@ IKM  = KEXS(PUBS)
 PRK = HDKF_Extract(salt, IKM)
 ```
 
-__Step 2__: Expand output key material by using HMAC function SHA-256(salt)
+__Step 2__: Expand output key material by using HMAC function SHA-256
 
 ```
 // inputs
