@@ -11,8 +11,9 @@ import "errors"
 type RingBuffer struct {
 	buffer   []byte
 	size     int
-	writePos int
-	readPos  int
+	writePos uint64
+	readPos  uint64
+	ch       chan int
 }
 
 // NewRingBuffer is a factory for RingBuffer, from various size in bytes.
@@ -23,7 +24,8 @@ func NewRingBuffer(size int) (error, *RingBuffer) {
 	}
 	return nil, &RingBuffer{
 		buffer: b,
-		size:   size}
+		size:   size,
+		ch:     make(chan int)}
 }
 
 // GetBufferSize returns the size of the buffer.
@@ -33,22 +35,12 @@ func (this *RingBuffer) GetBufferSize() int {
 
 // CanRead returns the current number of bytes in the RingBuffer that can be reads.
 func (this *RingBuffer) CanRead() int {
-	n := this.writePos - this.readPos
-	if n >= 0 {
-		return n
-	} else {
-		return len(this.buffer) - n
-	}
+	return int(this.writePos - this.readPos)
 }
 
-// CanRead returns the current number of bytes in the RingBuffer that can be writes.
+// CanWrite returns the current number of bytes in the RingBuffer that can be writes.
 func (this *RingBuffer) CanWrite() int {
-	n := this.readPos - this.writePos
-	if n >= 0 {
-		return n
-	} else {
-		return len(this.buffer) - n
-	}
+	return len(this.buffer) - int(this.writePos-this.readPos)
 }
 
 // Resize function grows or diminishes the buffer as soon as it is possible.
@@ -66,45 +58,40 @@ func (this *RingBuffer) Resize(newsize int) error {
 //
 // Implementations does not retain p.
 func (this *RingBuffer) Read(p []byte) (n int, err error) {
-	rp := this.readPos
-	wp := this.writePos
-	n = wp - rp
-	if n == 0 {
-		// current read buffer is empty
+	lenp := len(p)
+	if lenp == 0 { // no data to read
 		return
 	}
-	lenp := len(p)
 	max := len(this.buffer)
-	if n < 0 { // current read buffer is cut in two parts
-		n = max - n
-		// Can't read more than what we have in buffer
-		if n > lenp { // read subset of read buffer
-			n = lenp
-			a := max - rp
-			if a > n { // read only a subset of the first part of read buffer
-				copy(p[:n], this.buffer[rp:rp+n]) // first part
-			} else { // read the entire first part and a subset of second part
-				copy(p[:a], this.buffer[rp:rp+a]) // first part
-				a = n - a
-				if a > 0 {
-					copy(p[a:], this.buffer[:a]) // second part
-				}
-			}
-		} else { // read the entire read buffer
-			a := max - rp
-			copy(p[:a], this.buffer[rp:rp+a]) // first part of read buffer
-			copy(p[a:], this.buffer[:n-a])    // second part of read buffer
-		}
-	} else { // current read buffer is in only one part
-		// Can't read more than what we have in buffer
-		if n > lenp {
-			n = lenp
-		}
-		// copy the readed data and move forward reading pointer
-		n = copy(p[:n], this.buffer[rp:rp+n])
-		this.readPos += n
+	maxread := int(this.writePos - this.readPos)
+	if maxread == 0 {
+		// buffer is empty
+		return
 	}
-	this.readPos = (rp + n) % max
+	// Can't read more than what we have in buffer
+	if lenp > max {
+		n = max
+	} else {
+		n = lenp
+	}
+	if n > maxread {
+		n = maxread
+	}
+	// Translate to RingBuffer index
+	rp := int(this.readPos % uint64(max))
+	// Copy from the ring buffer
+	a := max - rp
+	if a > 0 {
+		if a > n {
+			a = n
+		}
+		copy(p[:a], this.buffer[rp:rp+a]) // first part of write buffer
+	}
+	b := n - a
+	if b > 0 {
+		copy(p[a:], this.buffer[:b]) // second part of write buffer
+	}
+	this.readPos += uint64(n)
 	return n, nil
 }
 
@@ -115,44 +102,39 @@ func (this *RingBuffer) Read(p []byte) (n int, err error) {
 //
 // Implementations does not retain p.
 func (this *RingBuffer) Write(p []byte) (n int, err error) {
-	rp := this.readPos
-	wp := this.writePos
-	n = rp - wp
-	if n == 0 {
-		// current read buffer is full
+	lenp := len(p)
+	if lenp == 0 { // no data to write
 		return
 	}
-	lenp := len(p)
 	max := len(this.buffer)
-	if n < 0 { // current write buffer is cut in two parts
-		n = max - n
-		// Can't write more than what we have in buffer
-		if n > lenp { // write subset of write buffer
-			n = lenp
-			a := max - wp
-			if a > n { // write only a subset of the first part of write buffer
-				copy(this.buffer[wp:wp+n], p[:n]) // first part
-			} else { // write the entire first part and a subset of second part
-				copy(this.buffer[wp:wp+a], p[:a]) // first part
-				a = n - a
-				if a > 0 {
-					copy(this.buffer[:a], p[a:]) // second part
-				}
-			}
-		} else { // write the entire read buffer
-			a := max - wp
-			copy(this.buffer[wp:wp+a], p[:a]) // first part of write buffer
-			copy(this.buffer[:n-a], p[a:])    // second part of write buffer
-		}
-	} else { // current write buffer is in only one part
-		// Can't write more than what we have in buffer
-		if n > lenp {
-			n = lenp
-		}
-		// copy the readed data and move forward reading pointer
-		n = copy(this.buffer[wp:wp+n], p[:n])
-		this.writePos += n
+	maxwrite := max - int(this.writePos-this.readPos)
+	if maxwrite == 0 {
+		// current buffer is full
+		return maxwrite, nil
 	}
-	this.writePos = (wp + n) % max
+	// Can't write more than what we have in buffer
+	if lenp > max {
+		n = max
+	} else {
+		n = lenp
+	}
+	if n > maxwrite {
+		n = maxwrite
+	}
+	// Translate to RingBuffer index
+	wp := int(this.writePos % uint64(max))
+	// Copy to the ring buffer
+	a := max - wp
+	if a > 0 {
+		if a > n {
+			a = n
+		}
+		copy(this.buffer[wp:wp+a], p[:a]) // first part of write buffer
+	}
+	b := n - a
+	if b > 0 {
+		copy(this.buffer[:b], p[a:]) // second part of write buffer
+	}
+	this.writePos += uint64(n)
 	return n, nil
 }
