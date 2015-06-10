@@ -2,7 +2,10 @@ package protocol
 
 import "errors"
 
-// RingBuffer implements io.ReadWriter interface with an internal buffer.
+// RingBuffer implements io.Reader interface with an internal ring buffer.
+// RingBuffer makes copy on Read(), but not on Write() where it returns a slice pointing to the ring buffer on Write call (it is not a io.Writer interface).
+//
+//
 // It is safe to have only one Reader and only one concurrent Writer.
 // But it is totally unsafe to use it as is with multiple readers or multiple writers without an external synchronization mechanism.
 type RingBuffer struct {
@@ -12,7 +15,7 @@ type RingBuffer struct {
 	readPos  int
 }
 
-// NewReadBuffer is a factory for RingBuffer, from various size in bytes.
+// NewRingBuffer is a factory for RingBuffer, from various size in bytes.
 func NewRingBuffer(size int) (error, *RingBuffer) {
 	b := make([]byte, size, size)
 	if len(b) != size {
@@ -112,5 +115,44 @@ func (this *RingBuffer) Read(p []byte) (n int, err error) {
 //
 // Implementations does not retain p.
 func (this *RingBuffer) Write(p []byte) (n int, err error) {
-	return
+	rp := this.readPos
+	wp := this.writePos
+	n = rp - wp
+	if n == 0 {
+		// current read buffer is full
+		return
+	}
+	lenp := len(p)
+	max := len(this.buffer)
+	if n < 0 { // current write buffer is cut in two parts
+		n = max - n
+		// Can't write more than what we have in buffer
+		if n > lenp { // write subset of write buffer
+			n = lenp
+			a := max - wp
+			if a > n { // write only a subset of the first part of write buffer
+				copy(this.buffer[wp:wp+n], p[:n]) // first part
+			} else { // write the entire first part and a subset of second part
+				copy(this.buffer[wp:wp+a], p[:a]) // first part
+				a = n - a
+				if a > 0 {
+					copy(this.buffer[:a], p[a:]) // second part
+				}
+			}
+		} else { // write the entire read buffer
+			a := max - wp
+			copy(this.buffer[wp:wp+a], p[:a]) // first part of write buffer
+			copy(this.buffer[:n-a], p[a:])    // second part of write buffer
+		}
+	} else { // current write buffer is in only one part
+		// Can't write more than what we have in buffer
+		if n > lenp {
+			n = lenp
+		}
+		// copy the readed data and move forward reading pointer
+		n = copy(this.buffer[wp:wp+n], p[:n])
+		this.writePos += n
+	}
+	this.writePos = (wp + n) % max
+	return n, nil
 }
