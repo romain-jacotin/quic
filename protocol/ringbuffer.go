@@ -9,11 +9,11 @@ import "errors"
 // It is safe to have only one Reader and only one concurrent Writer.
 // But it is totally unsafe to use it as is with multiple readers or multiple writers without an external synchronization mechanism.
 type RingBuffer struct {
-	buffer   []byte
-	size     int
-	writePos uint64
-	readPos  uint64
-	ch       chan int
+	buffer      []byte
+	size        int
+	writeOffset uint64
+	readOffset  uint64
+	ch          chan int
 }
 
 // NewRingBuffer is a factory for RingBuffer, from various size in bytes.
@@ -35,12 +35,12 @@ func (this *RingBuffer) GetBufferSize() int {
 
 // CanRead returns the current number of bytes in the RingBuffer that can be reads.
 func (this *RingBuffer) CanRead() int {
-	return int(this.writePos - this.readPos)
+	return int(this.writeOffset - this.readOffset)
 }
 
 // CanWrite returns the current number of bytes in the RingBuffer that can be writes.
 func (this *RingBuffer) CanWrite() int {
-	return len(this.buffer) - int(this.writePos-this.readPos)
+	return len(this.buffer) - int(this.writeOffset-this.readOffset)
 }
 
 // Resize function grows or diminishes the buffer as soon as it is possible.
@@ -63,7 +63,7 @@ func (this *RingBuffer) Read(p []byte) (n int, err error) {
 		return
 	}
 	max := len(this.buffer)
-	maxread := int(this.writePos - this.readPos)
+	maxread := int(this.writeOffset - this.readOffset)
 	if maxread == 0 {
 		// buffer is empty
 		return
@@ -78,7 +78,7 @@ func (this *RingBuffer) Read(p []byte) (n int, err error) {
 		n = maxread
 	}
 	// Translate to RingBuffer index
-	rp := int(this.readPos % uint64(max))
+	rp := int(this.readOffset % uint64(max))
 	// Copy from the ring buffer
 	a := max - rp
 	if a > 0 {
@@ -91,7 +91,7 @@ func (this *RingBuffer) Read(p []byte) (n int, err error) {
 	if b > 0 {
 		copy(p[a:], this.buffer[:b]) // second part of write buffer
 	}
-	this.readPos += uint64(n)
+	this.readOffset += uint64(n)
 	return n, nil
 }
 
@@ -107,7 +107,7 @@ func (this *RingBuffer) Write(p []byte) (n int, err error) {
 		return
 	}
 	max := len(this.buffer)
-	maxwrite := max - int(this.writePos-this.readPos)
+	maxwrite := max - int(this.writeOffset-this.readOffset)
 	if maxwrite == 0 {
 		// current buffer is full
 		return maxwrite, nil
@@ -122,7 +122,7 @@ func (this *RingBuffer) Write(p []byte) (n int, err error) {
 		n = maxwrite
 	}
 	// Translate to RingBuffer index
-	wp := int(this.writePos % uint64(max))
+	wp := int(this.writeOffset % uint64(max))
 	// Copy to the ring buffer
 	a := max - wp
 	if a > 0 {
@@ -135,6 +135,6 @@ func (this *RingBuffer) Write(p []byte) (n int, err error) {
 	if b > 0 {
 		copy(this.buffer[:b], p[a:]) // second part of write buffer
 	}
-	this.writePos += uint64(n)
+	this.writeOffset += uint64(n)
 	return n, nil
 }
