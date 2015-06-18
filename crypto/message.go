@@ -87,19 +87,11 @@ type Message struct {
 // 'tags' and 'values' must have the same length, and this length must be less or equal than 'MaxNumEntries' value.
 //
 // NewMessage returns a nil value in case of invalid inputs.
-func NewMessage(messageTag MessageTag, tags []MessageTag, values [][]byte) *Message {
-	if len(tags) != len(values) {
-		return nil
-	}
-	if len(tags) > MaxNumEntries {
-		return nil
-	}
+func NewMessage(messageTag MessageTag) *Message {
 	switch messageTag {
 	case TagCHLO, TagREJ, TagSHLO, TagSCUP:
 		return &Message{
-			msgTag: messageTag,
-			tags:   tags,
-			values: values}
+			msgTag: messageTag}
 	}
 	return nil
 }
@@ -119,14 +111,38 @@ func (this *Message) GetNumEntries() uint16 {
 	return uint16(len(this.tags))
 }
 
-// Contains method return 'true' and the associated tag value []byte if the message contains the requested tag, otherwise returns 'false' and nil.
-func (this *Message) Contains(t MessageTag) (bool, []byte) {
+// ContainsTag method return 'true' and the associated tag value []byte if the message contains the requested tag, otherwise returns 'false' and nil.
+func (this *Message) ContainsTag(t MessageTag) (bool, []byte) {
 	for i, v := range this.tags {
 		if v == t {
 			return true, this.values[i]
 		}
 	}
 	return false, nil
+}
+
+// SetTag tries to overwrite the tag value pair in the crypto.Message and returns true if tag does already present, and false otherwise.
+func (this *Message) UpdateTagValue(tag MessageTag, value []byte) bool {
+	// Try to overwrite the value if the tag already exist
+	for i, v := range this.tags {
+		if v == tag {
+			this.values[i] = value
+			return true
+		}
+	}
+	return false
+}
+
+// SetTag only adds the tag value pair in the crypto.Message if tag does not already exist, and return false without adding it otherwise.
+func (this *Message) AddTagValue(tag MessageTag, value []byte) bool {
+	// Verify that tag is not present.
+	if res, _ := this.ContainsTag(tag); res {
+		return false
+	}
+	// Append the tag value pair
+	this.tags = append(this.tags, tag)
+	this.values = append(this.values, value)
+	return true
 }
 
 // IsValid verifies that the message type associated tag-value pairs are valids and returns true in that case, otherwise returns false.

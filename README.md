@@ -45,6 +45,7 @@ Work in progress on the High-Level API definition for QUIC programs in Golang.
 * [ANNEX B: Extracts from RFC5681 _ TCP Congestion Control](./doc/TCPCongestionControl.md)
 * [ANNEX C: Extracts from RFC6298 - Computing TCP's Retransmission Timer](./doc/TCPRetransmissionTimer.md)
 * [ANNEX D: Extracts from draft-rhee-tcpm-cubic-02 - CUBIC Congestion Control for Fast Long-Distance Networks](./doc/CUBIC.md)
+* [ANNEX E: Extracts from RFC6937 - Proportional Rate Reduction for TCP](./doc/TCPProportionalRateReduction.md)
 
 ## <A name="introduction"></A> Introduction
 
