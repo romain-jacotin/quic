@@ -203,3 +203,52 @@ func Test_AddTagValue(t *testing.T) {
 		t.Error("AddTagValue: can'f find added tag/value")
 	}
 }
+
+func Test_GetSerializeSize(t *testing.T) {
+	msg := NewMessage(TagCHLO)
+	if msg.GetSerializeSize() != 8 {
+		t.Error("GetSerializeSize: bad size")
+	}
+	msg.AddTagValue(TagSNI, []byte{1})
+	if msg.GetSerializeSize() != (8 + 1*8 + 1) {
+		t.Error("GetSerializeSize: bad size")
+	}
+	msg.AddTagValue(TagCETV, []byte{2, 3})
+	if msg.GetSerializeSize() != (8 + 2*8 + 3) {
+		t.Error("GetSerializeSize: bad size")
+	}
+	msg.AddTagValue(TagAEAD, []byte{4, 5, 6})
+	if msg.GetSerializeSize() != (8 + 3*8 + 6) {
+		t.Error("GetSerializeSize: bad size")
+	}
+}
+
+func Test_GetSerialize(t *testing.T) {
+	msg := NewMessage(TagCHLO)
+	s := msg.GetSerialize()
+	r := []byte{'C', 'H', 'L', 'O', 0, 0, 0, 0}
+	if !bytes.Equal(s, r) {
+		t.Error("GetSerialize: bad binary string")
+	}
+
+	msg.AddTagValue(TagSNI, []byte{1})
+	s = msg.GetSerialize()
+	r = []byte{'C', 'H', 'L', 'O', 1, 0, 0, 0, 'S', 'N', 'I', 0, 1, 0, 0, 0, 1}
+	if !bytes.Equal(s, r) {
+		t.Error("GetSerialize: bad binary string")
+	}
+
+	msg.AddTagValue(TagCETV, []byte{2, 3})
+	s = msg.GetSerialize()
+	r = []byte{'C', 'H', 'L', 'O', 2, 0, 0, 0, 'S', 'N', 'I', 0, 1, 0, 0, 0, 'C', 'E', 'T', 'V', 3, 0, 0, 0, 1, 2, 3}
+	if !bytes.Equal(s, r) {
+		t.Error("GetSerialize: bad binary string")
+	}
+
+	msg.AddTagValue(TagAEAD, []byte{4, 5, 6})
+	s = msg.GetSerialize()
+	r = []byte{'C', 'H', 'L', 'O', 3, 0, 0, 0, 'S', 'N', 'I', 0, 1, 0, 0, 0, 'A', 'E', 'A', 'D', 4, 0, 0, 0, 'C', 'E', 'T', 'V', 6, 0, 0, 0, 1, 4, 5, 6, 2, 3}
+	if !bytes.Equal(s, r) {
+		t.Error("GetSerialize: bad binary string")
+	}
+}

@@ -1,6 +1,8 @@
 // crypto package process crypto protocol messages and crypto handshake
 package crypto
 
+import "encoding/binary"
+
 // internal Parser state's type.
 type parserState uint32
 
@@ -94,7 +96,7 @@ func (this *Parser) runParser() {
 		switch this.state {
 		case sREADMESSAGETAG: // Read 4 bytes
 			// Read uint32 message tag
-			this.msgTag = MessageTag(this.data[0]) + MessageTag(this.data[1]>>8) + MessageTag(this.data[2]>>16) + MessageTag(this.data[3]>>24)
+			this.msgTag = MessageTag(binary.LittleEndian.Uint32(this.data))
 			// Advance reading slice of []byte
 			this.data = this.data[4:]
 			// Advance state
@@ -104,8 +106,8 @@ func (this *Parser) runParser() {
 			break
 		case sREADNUMBERENTRIES: // Read 2+2 bytes
 			// Read uint16 number of entries and ignore next uint16 of padding
-			this.numEntries = uint16(this.data[0]) + (uint16(this.data[1]) << 8)
-			if this.numEntries > MaxNumEntries {
+			this.numEntries = uint16(binary.LittleEndian.Uint16(this.data))
+			if this.numEntries > MaxMessageTagNumEntries {
 				this.off = true
 				this.output <- nil
 			}
@@ -117,34 +119,37 @@ func (this *Parser) runParser() {
 			this.needMoreData = uint32(8 * this.numEntries)
 			break
 		case sREADTAGSANDOFFSETS: // Read numentries*(4+4)
-			// Allocate ressources for tag-offset pairs
-			this.tags = make([]MessageTag, this.numEntries)
-			this.endOffsets = make([]uint32, this.numEntries)
-			for i = 0; i < int(this.numEntries); i++ {
-				j = i << 3
-				// Read uint32 tag
-				this.tags[i] = MessageTag(this.data[j]) + (MessageTag(this.data[j+1]) << 8) + (MessageTag(this.data[j+2]) << 16) + (MessageTag(this.data[j+3]) << 24)
-				// Read uint32 offset
-				this.endOffsets[i] = uint32(this.data[j]) + (uint32(this.data[j+1]) << 8) + (uint32(this.data[j+2]) << 16) + (uint32(this.data[j+3]) << 24)
+			if this.numEntries > 0 {
+				// Allocate ressources for tag-offset pairs
+				this.tags = make([]MessageTag, this.numEntries)
+				this.endOffsets = make([]uint32, this.numEntries)
+				for i = 0; i < int(this.numEntries); i++ {
+					// Read uint32 tag
+					this.tags[i] = MessageTag(binary.LittleEndian.Uint32(this.data))
+					this.data = this.data[4:]
+					// Read uint32 offset
+					this.endOffsets[i] = uint32(binary.LittleEndian.Uint32(this.data))
+					this.data = this.data[4:]
+				}
+				// Ask for next data size
+				this.needMoreData = this.endOffsets[this.numEntries-1]
 			}
-			// Advance reading slice of []byte
-			this.data = this.data[this.numEntries*8:]
 			// Advance state
 			this.state = sREADVALUES
-			// Ask for next data size
-			this.needMoreData = this.endOffsets[this.numEntries-1]
 			break
 		case sREADVALUES:
-			// Allocate ressources for tag-value pairs
-			this.tags = make([]MessageTag, this.numEntries)
-			// Read values
-			j = 0
-			for i = 0; i < int(this.numEntries); i++ {
-				this.values[i] = this.data[j:this.endOffsets[i]]
-				j = int(this.endOffsets[i])
+			if this.numEntries > 0 {
+				// Allocate ressources for tag-value pairs
+				this.values = make([][]byte, this.numEntries)
+				// Read values
+				j = 0
+				for i = 0; i < int(this.numEntries); i++ {
+					this.values[i] = this.data[j:this.endOffsets[i]]
+					j = int(this.endOffsets[i])
+				}
+				// Advance reading slice of []byte
+				this.data = this.data[this.endOffsets[this.numEntries-1]:]
 			}
-			// Advance reading slice of []byte
-			this.data = this.data[this.endOffsets[this.numEntries-1]:]
 			// Advance state
 			this.state = sREADMESSAGETAG
 			// Ask for next data size
