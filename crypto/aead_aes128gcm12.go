@@ -6,8 +6,18 @@ type AEAD_AES128GCM12 struct {
 }
 
 // NewAEAD_ChaCha20Poly1305 returns a *AEAD_ChaCha20 that implements AEAD interface
-func NewAEAD_AES128GCM12(key, nonce []byte) AEAD {
+func NewAEAD_AES128GCM12() AEAD {
 	return new(AEAD_AES128GCM12)
+}
+
+// SetKey
+func (this *AEAD_AES128GCM12) SetKey(key []byte) error {
+	return nil
+}
+
+//SetNoncePrefix
+func (this *AEAD_AES128GCM12) SetNoncePrefix(nonce []byte) error {
+	return nil
 }
 
 // Open

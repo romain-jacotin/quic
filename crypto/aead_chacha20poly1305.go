@@ -6,8 +6,18 @@ type AEAD_ChaCha20Poly1305 struct {
 }
 
 // NewAEAD_ChaCha20Poly1305 returns a *AEAD_ChaCha20 that implements AEAD interface
-func NewAEAD_ChaCha20(key, nonce []byte) AEAD {
+func NewAEAD_ChaCha20() AEAD {
 	return new(AEAD_ChaCha20Poly1305)
+}
+
+// SetKey
+func (this *AEAD_ChaCha20Poly1305) SetKey(key []byte) error {
+	return nil
+}
+
+//SetNoncePrefix
+func (this *AEAD_ChaCha20Poly1305) SetNoncePrefix(nonce []byte) error {
+	return nil
 }
 
 // Open
