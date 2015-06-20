@@ -6,7 +6,7 @@ type AEAD_ChaCha20Poly1305 struct {
 }
 
 // NewAEAD_ChaCha20Poly1305 returns a *AEAD_ChaCha20 that implements AEAD interface
-func NewAEAD_ChaCha20() AEAD {
+func NewAEAD_ChaCha20Poly1305() AEAD {
 	return new(AEAD_ChaCha20Poly1305)
 }
 
