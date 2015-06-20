@@ -1,10 +1,13 @@
 package crypto
 
-// ChaCha20 algorithm and test vector from https://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
+// ChaCha20 algorithm and test vector from https://tools.ietf.org/html/rfc7539
 
-func ChaChaInit(chachaGrid *[16]uint32, key *[32]byte, nonce *[8]byte) {
-	var i, j uint
+type ChaCha20Cipher struct {
+	grid [16]uint32
+}
 
+// Setup initialize the ChaCha20 grid based on the key and nonce.
+func (this *ChaCha20Cipher) Setup(key *[32]byte, nonce *[12]byte, counter uint32) {
 	// ChaCha20 uses a 4 x 4 grid of uint32:
 	//
 	//   +------------+------------+------------+------------+
@@ -27,33 +30,32 @@ func ChaChaInit(chachaGrid *[16]uint32, key *[32]byte, nonce *[8]byte) {
 	// Lastly, words 14 and 15 are taken from an 8-byte nonce, again by reading the bytes in little-endian order, in 4-byte chunks.
 
 	// constants
-	chachaGrid[0] = 0x61707865
-	chachaGrid[1] = 0x3320646e
-	chachaGrid[2] = 0x79622d32
-	chachaGrid[3] = 0x6b206574
+	this.grid[0] = 0x61707865
+	this.grid[1] = 0x3320646e
+	this.grid[2] = 0x79622d32
+	this.grid[3] = 0x6b206574
 
 	// 256 bits key as 8 Little Endian uint32
-	for j = 0; j < 8; j++ {
-		chachaGrid[j+4] = 0
-		for i = 0; i < 4; i++ {
-			chachaGrid[j+4] += uint32(key[j*4+i]) << (8 * i)
+	for j := uint32(0); j < 8; j++ {
+		this.grid[j+4] = 0
+		for i := uint32(0); i < 4; i++ {
+			this.grid[j+4] += uint32(key[j*4+i]) << (8 * i)
 		}
 	}
 
 	// block counter
-	chachaGrid[12] = 0
-	chachaGrid[13] = 0
+	this.grid[12] = counter
 
-	// nonce as 2 consecutives Little Endian uint32
-	for j = 0; j < 2; j++ {
-		chachaGrid[j+14] = 0
-		for i = 0; i < 4; i++ {
-			chachaGrid[j+14] += uint32(nonce[j*4+i]) << (8 * i)
+	// nonce as 3 consecutives Little Endian uint32
+	for j := uint32(0); j < 3; j++ {
+		this.grid[j+13] = 0
+		for i := uint32(0); i < 4; i++ {
+			this.grid[j+13] += uint32(nonce[(j<<2)+i]) << (i << 3)
 		}
 	}
 }
 
-func ChaCha20(keystream *[64]byte, chachaGrid *[16]uint32) {
+func (this *ChaCha20Cipher) GetNextKeystream(keystream *[64]byte) {
 	var x [16]uint32
 	var a, b, c, d uint32
 
@@ -68,8 +70,8 @@ func ChaCha20(keystream *[64]byte, chachaGrid *[16]uint32) {
 	//   +-----+-----+-----+-----+
 	//   | x12 | x13 | x14 | x15 |
 	//   +-----+-----+-----+-----+
-	for i := 0; i < 16; i++ {
-		x[i] = chachaGrid[i]
+	for i := range x {
+		x[i] = this.grid[i]
 	}
 
 	// ChaCha20 consists of 20 rounds, alternating between "column" rounds and "diagonal" rounds.
@@ -350,8 +352,8 @@ func ChaCha20(keystream *[64]byte, chachaGrid *[16]uint32) {
 	}
 
 	// After 20 rounds of the above processing, the original 16 input words are added to the 16 words to form the 16 output words.
-	for i := 0; i < 16; i++ {
-		x[i] += chachaGrid[i]
+	for i := range x {
+		x[i] += this.grid[i]
 	}
 
 	// The 64 output bytes are generated from the 16 output words by serialising them in little-endian order and concatenating the results.
@@ -364,8 +366,8 @@ func ChaCha20(keystream *[64]byte, chachaGrid *[16]uint32) {
 	}
 
 	// Input words 12 and 13 are a block counter, with word 12 overflowing into word 13.
-	chachaGrid[12]++
-	if chachaGrid[12] == 0 {
-		chachaGrid[13]++
+	this.grid[12]++
+	if this.grid[12] == 0 {
+		this.grid[13]++
 	}
 }
