@@ -1,13 +1,15 @@
 package crypto
 
+import "errors"
+
 // ChaCha20 algorithm and test vector from https://tools.ietf.org/html/rfc7539
 
 type ChaCha20Cipher struct {
 	grid [16]uint32
 }
 
-// Setup initialize the ChaCha20 grid based on the key and nonce.
-func (this *ChaCha20Cipher) Setup(key *[32]byte, nonce *[12]byte, counter uint32) {
+// Setup initialize the ChaCha20 grid based on the key, nonce and block counter.
+func (this *ChaCha20Cipher) Setup(key, nonce []byte, counter uint32) error {
 	// ChaCha20 uses a 4 x 4 grid of uint32:
 	//
 	//   +------------+------------+------------+------------+
@@ -18,16 +20,23 @@ func (this *ChaCha20Cipher) Setup(key *[32]byte, nonce *[12]byte, counter uint32
 	//   +------------+------------+------------+------------+
 	//   | key      8 | key      9 | key     10 | key     11 |
 	//   +------------+------------+------------+------------+
-	//   | block   12 | block   13 | nonce   14 | nonce   15 |
+	//   | block   12 | nonce   13 | nonce   14 | nonce   15 |
 	//   +------------+------------+------------+------------+
 	//
 	// The first four input words are constants: (0x61707865, 0x3320646e, 0x79622d32, 0x6b206574).
 	//
 	// Input words 4 through 11 are taken from the 256-bit key by reading the bytes in little-endian order, in 4-byte chunks.
 	//
-	// Input words 12 and 13 are a block counter, with word 12 overflowing into word 13. The block counter words are initially zero.
+	// Input words 12 is a block counter. The block counter word is initially zero for
 	//
-	// Lastly, words 14 and 15 are taken from an 8-byte nonce, again by reading the bytes in little-endian order, in 4-byte chunks.
+	// Lastly, words 13, 14 and 15 are taken from an 12-byte nonce, again by reading the bytes in little-endian order, in 4-byte chunks.
+
+	if len(key) != 32 {
+		return errors.New("ChaCha20.Setup: key must be 32 bytes length")
+	}
+	if len(nonce) != 12 {
+		return errors.New("ChaCha20.Setup: nonce must be 12 bytes length")
+	}
 
 	// constants
 	this.grid[0] = 0x61707865
@@ -39,7 +48,7 @@ func (this *ChaCha20Cipher) Setup(key *[32]byte, nonce *[12]byte, counter uint32
 	for j := uint32(0); j < 8; j++ {
 		this.grid[j+4] = 0
 		for i := uint32(0); i < 4; i++ {
-			this.grid[j+4] += uint32(key[j*4+i]) << (8 * i)
+			this.grid[j+4] += uint32(key[(j<<2)+i]) << (i << 3)
 		}
 	}
 
@@ -53,8 +62,10 @@ func (this *ChaCha20Cipher) Setup(key *[32]byte, nonce *[12]byte, counter uint32
 			this.grid[j+13] += uint32(nonce[(j<<2)+i]) << (i << 3)
 		}
 	}
+	return nil
 }
 
+// GetNetxKeystream fills the keystream bytes array corresponding to the current state of ChaCha20 grid and increment the block counter for the next block of keystream.
 func (this *ChaCha20Cipher) GetNextKeystream(keystream *[64]byte) {
 	var x [16]uint32
 	var a, b, c, d uint32
@@ -365,9 +376,6 @@ func (this *ChaCha20Cipher) GetNextKeystream(keystream *[64]byte) {
 		keystream[i+3] = byte(j >> 24)
 	}
 
-	// Input words 12 and 13 are a block counter, with word 12 overflowing into word 13.
+	// Input words 12 is a block counter.
 	this.grid[12]++
-	if this.grid[12] == 0 {
-		this.grid[13]++
-	}
 }
