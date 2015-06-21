@@ -2,62 +2,11 @@ package crypto
 
 import "errors"
 
-func mul_reg(dst *[4]uint64, a, b uint64) {
-	a0 := a & 0xffffffff
-	a1 := a >> 32
-	b0 := b & 0xffffffff
-	b1 := b >> 32
-	dst0 := a0 * b0
-	dst1 := dst0 >> 32
-	dst[0] = dst0 & 0xffffffff
-	dst1 += a1 * b0
-	dst2 := dst1 >> 32
-	dst1 &= 0xffffffff
-	dst1 += a0 * b1
-	dst2 += dst1 >> 32
-	dst3 := dst2 >> 32
-	dst2 &= 0xffffffff
-	dst2 += a1 * b1
-	dst3 += dst2 >> 32
-	dst[1] = dst1 & 0xffffffff
-	dst[2] = dst2 & 0xffffffff
-	dst[3] = dst3 & 0xffffffff
-}
-
-func addlo_reg(dst *[4]uint64, a uint64) {
-	dst0 := dst[0] + (a & 0xffffffff)
-	dst1 := dst[1] + (a >> 32)
-	dst1 += dst0 >> 32
-	dst[0] = dst0 & 0xffffffff
-	dst2 := dst[2] + (dst1 >> 32)
-	dst[1] = dst1 & 0xffffffff
-	dst3 := dst[3] + (dst2 >> 32)
-	dst[2] = dst2 & 0xffffffff
-	dst[3] = dst3 & 0xffffffff
-}
-
-func add_reg(dst, a *[4]uint64) {
-	dst0 := dst[0] + a[0]
-	dst1 := dst[1] + a[1]
-	dst2 := dst[2] + a[2]
-	dst3 := dst[3] + a[3]
-	dst1 += dst0 >> 32
-	dst[0] = dst0 & 0xffffffff
-	dst2 = dst2 + (dst1 >> 32)
-	dst[1] = dst1 & 0xffffffff
-	dst3 += (dst2 >> 32)
-	dst[2] = dst2 & 0xffffffff
-	dst[3] = dst3 & 0xffffffff
-}
-
-func shr_reg(src *[4]uint64, bit uint) uint64 {
-	return (src[1] >> (bit - 32)) + (src[2] << (64 - bit)) + (src[3] << (96 - bit))
-}
-
 func Poly1305(data, r_key, s_key []byte) (err error, high_mac, low_mac uint64) {
 	var r0, r1, r2, h0, h1, h2, c, c0, c1, c2, s1, s2 uint64
 	var i, j, l uint
 	var d, d0, d1, d2 [4]uint64
+	var a0, a1, b0, b1, dst0, dst1, dst2, dst3 uint64
 
 	if (len(r_key) != 16) || (len(s_key) != 16) {
 		return errors.New("Poly1305 : mac, r and s keys must have 16 bytes length"), 0, 0
@@ -143,28 +92,295 @@ func Poly1305(data, r_key, s_key []byte) (err error, high_mac, low_mac uint64) {
 		h1 += c1
 		h2 += c2
 
-		// Calculate h = h * r --> MUST DEBUG !!!!
+		// Calculate h = h * r
 
 		// d0 = h0*r0 + h1*(r2*(5<<2)) + h2*(r1*(5<<2))
-		mul_reg(&d0, h0, r0)
-		mul_reg(&d, h1, s2)
-		add_reg(&d0, &d)
-		mul_reg(&d, h2, s1)
-		add_reg(&d0, &d)
+		//   step 1: d0 = h0*r0
+		//   step 2: d  = h1*s2 (with s2 = r2*(5<<2))
+		//   step 3: d0 += d
+		//   step 4: d  = h2*s1 (with s1 = r1*(5<<2))
+		//   step 5: d0 += d
+
+		// step 1: d0 = h0*r0
+		a0 = h0 & 0xffffffff
+		a1 = h0 >> 32
+		b0 = r0 & 0xffffffff
+		b1 = r0 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d0[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d0[1] = dst1 & 0xffffffff
+		d0[2] = dst2 & 0xffffffff
+		d0[3] = dst3 & 0xffffffff
+
+		// step 2: d = h1*s2
+		a0 = h1 & 0xffffffff
+		a1 = h1 >> 32
+		b0 = s2 & 0xffffffff
+		b1 = s2 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 3: d0 += d
+		dst0 = d0[0] + d[0]
+		dst1 = d0[1] + d[1]
+		dst2 = d0[2] + d[2]
+		dst3 = d0[3] + d[3]
+		dst1 += dst0 >> 32
+		d0[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d0[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d0[2] = dst2 & 0xffffffff
+		d0[3] = dst3 & 0xffffffff
+
+		// step 4: d = h2*s1
+		a0 = h2 & 0xffffffff
+		a1 = h2 >> 32
+		b0 = s1 & 0xffffffff
+		b1 = s1 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 5: d0 += d
+		dst0 := d0[0] + d[0]
+		dst1 := d0[1] + d[1]
+		dst2 := d0[2] + d[2]
+		dst3 := d0[3] + d[3]
+		dst1 += dst0 >> 32
+		d0[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d0[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d0[2] = dst2 & 0xffffffff
+		d0[3] = dst3 & 0xffffffff
 
 		// d1 = h0*r1 + h1*r0 + h2*(r2*(5<<2))
-		mul_reg(&d1, h0, r1)
-		mul_reg(&d, h1, r0)
-		add_reg(&d1, &d)
-		mul_reg(&d, h2, s2)
-		add_reg(&d1, &d)
+		//   step 1: d1 = h0*r1
+		//   step 2: d  = h1*r0
+		//   step 3: d1 += d
+		//   step 4: d  = h2*s2 (with s2 = r2*(5<<2))
+		//   step 5: d1 += d
+
+		// step 1: d1 = h0*r1
+		a0 = h0 & 0xffffffff
+		a1 = h0 >> 32
+		b0 = r1 & 0xffffffff
+		b1 = r1 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d1[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d1[1] = dst1 & 0xffffffff
+		d1[2] = dst2 & 0xffffffff
+		d1[3] = dst3 & 0xffffffff
+
+		// step 2: d = h1*r0
+		a0 = h1 & 0xffffffff
+		a1 = h1 >> 32
+		b0 = r0 & 0xffffffff
+		b1 = r0 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 3: d1 += d
+		dst0 = d1[0] + d[0]
+		dst1 = d1[1] + d[1]
+		dst2 = d1[2] + d[2]
+		dst3 = d1[3] + d[3]
+		dst1 += dst0 >> 32
+		d1[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d1[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d1[2] = dst2 & 0xffffffff
+		d1[3] = dst3 & 0xffffffff
+
+		// step 4: d = h2*s2
+		a0 = h2 & 0xffffffff
+		a1 = h2 >> 32
+		b0 = s2 & 0xffffffff
+		b1 = s2 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 5: d1 += d
+		dst0 = d1[0] + d[0]
+		dst1 = d1[1] + d[1]
+		dst2 = d1[2] + d[2]
+		dst3 = d1[3] + d[3]
+		dst1 += dst0 >> 32
+		d1[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d1[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d1[2] = dst2 & 0xffffffff
+		d1[3] = dst3 & 0xffffffff
 
 		// d2 = h0*r2 + h1*r1 + h2*r0
-		mul_reg(&d2, h0, r2)
-		mul_reg(&d, h1, r1)
-		add_reg(&d2, &d)
-		mul_reg(&d, h2, r0)
-		add_reg(&d2, &d)
+		//   step 1: d2 = h0*r2
+		//   step 2: d  = h1*r1
+		//   step 3: d2 += d
+		//   step 4: d  = h2*r0
+		//   step 5: d2 += d
+
+		// step 1: d2 = h0*r2
+		a0 = h0 & 0xffffffff
+		a1 = h0 >> 32
+		b0 = r2 & 0xffffffff
+		b1 = r2 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d2[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d2[1] = dst1 & 0xffffffff
+		d2[2] = dst2 & 0xffffffff
+		d2[3] = dst3 & 0xffffffff
+
+		// step 2: d = h1*r1
+		a0 = h1 & 0xffffffff
+		a1 = h1 >> 32
+		b0 = r1 & 0xffffffff
+		b1 = r1 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 3: d2 += d
+		dst0 = d2[0] + d[0]
+		dst1 = d2[1] + d[1]
+		dst2 = d2[2] + d[2]
+		dst3 = d2[3] + d[3]
+		dst1 += dst0 >> 32
+		d2[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d2[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d2[2] = dst2 & 0xffffffff
+		d2[3] = dst3 & 0xffffffff
+
+		// step 4: d = h2*r0
+		a0 = h2 & 0xffffffff
+		a1 = h2 >> 32
+		b0 = r0 & 0xffffffff
+		b1 = r0 >> 32
+		dst0 = a0 * b0
+		dst1 = dst0 >> 32
+		d[0] = dst0 & 0xffffffff
+		dst1 += a1 * b0
+		dst2 = dst1 >> 32
+		dst1 &= 0xffffffff
+		dst1 += a0 * b1
+		dst2 += dst1 >> 32
+		dst3 = dst2 >> 32
+		dst2 &= 0xffffffff
+		dst2 += a1 * b1
+		dst3 += dst2 >> 32
+		d[1] = dst1 & 0xffffffff
+		d[2] = dst2 & 0xffffffff
+		d[3] = dst3 & 0xffffffff
+
+		// step 5: d2 += d
+		dst0 = d2[0] + d[0]
+		dst1 = d2[1] + d[1]
+		dst2 = d2[2] + d[2]
+		dst3 = d2[3] + d[3]
+		dst1 += dst0 >> 32
+		d2[0] = dst0 & 0xffffffff
+		dst2 = dst2 + (dst1 >> 32)
+		d2[1] = dst1 & 0xffffffff
+		dst3 += (dst2 >> 32)
+		d2[2] = dst2 & 0xffffffff
+		d2[3] = dst3 & 0xffffffff
 
 		// partial h %= ((2^130)-5)
 		// In fact we don't calculate the complete modulo value, but the lowest value that is < 2^130
@@ -177,12 +393,34 @@ func Poly1305(data, r_key, s_key []byte) (err error, high_mac, low_mac uint64) {
 		h0 = (d0[0] + (d0[1] << 32)) & 0xfffffffffff
 
 		// h1 = LSB 44 bits of d1
-		addlo_reg(&d1, c)
+
+		// addlo_reg(&d1, c)
+		dst0 = d1[0] + (c & 0xffffffff)
+		dst1 = d1[1] + (c >> 32)
+		dst1 += dst0 >> 32
+		d1[0] = dst0 & 0xffffffff
+		dst2 = d1[2] + (dst1 >> 32)
+		d1[1] = dst1 & 0xffffffff
+		dst3 = d1[3] + (dst2 >> 32)
+		d1[2] = dst2 & 0xffffffff
+		d1[3] = dst3 & 0xffffffff
+
 		c = (d1[1] >> 12) + (d1[2] << 20) + (d1[3] << 52)
 		h1 = (d1[0] + (d1[1] << 32)) & 0xfffffffffff
 
 		// h1 = LSB 42 bits of d2
-		addlo_reg(&d2, c)
+
+		// addlo_reg(&d2, c)
+		dst0 = d2[0] + (c & 0xffffffff)
+		dst1 = d2[1] + (c >> 32)
+		dst1 += dst0 >> 32
+		d2[0] = dst0 & 0xffffffff
+		dst2 = d2[2] + (dst1 >> 32)
+		d2[1] = dst1 & 0xffffffff
+		dst3 = d2[3] + (dst2 >> 32)
+		d2[2] = dst2 & 0xffffffff
+		d2[3] = dst3 & 0xffffffff
+
 		c = (d2[1] >> 10) + (d2[2] << 22) + (d2[3] << 54)
 		h2 = (d2[0] + (d2[1] << 32)) & 0x3ffffffffff
 
