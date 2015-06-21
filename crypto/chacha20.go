@@ -1,5 +1,6 @@
 package crypto
 
+import "github.com/romain-jacotin/quic/protocol"
 import "errors"
 
 // ChaCha20 algorithm and test vector from https://tools.ietf.org/html/rfc7539
@@ -9,7 +10,7 @@ type ChaCha20Cipher struct {
 }
 
 // Setup initialize the ChaCha20 grid based on the key, nonce and block counter.
-func (this *ChaCha20Cipher) Setup(key, nonce []byte, counter uint32) error {
+func NewChaCha20Cipher(key, nonce []byte, counter uint32) (*ChaCha20Cipher, error) {
 	// ChaCha20 uses a 4 x 4 grid of uint32:
 	//
 	//   +------------+------------+------------+------------+
@@ -31,38 +32,47 @@ func (this *ChaCha20Cipher) Setup(key, nonce []byte, counter uint32) error {
 	//
 	// Lastly, words 13, 14 and 15 are taken from an 12-byte nonce, again by reading the bytes in little-endian order, in 4-byte chunks.
 
-	if len(key) != 32 {
-		return errors.New("ChaCha20.Setup: key must be 32 bytes length")
+	if len(key) < 32 {
+		return nil, errors.New("ChaCha20.Setup: key must be 32 bytes length")
 	}
-	if len(nonce) != 12 {
-		return errors.New("ChaCha20.Setup: nonce must be 12 bytes length")
+	if len(nonce) < 12 {
+		return nil, errors.New("ChaCha20.Setup: nonce must be 12 bytes length")
 	}
 
+	cc20 := new(ChaCha20Cipher)
+
 	// constants
-	this.grid[0] = 0x61707865
-	this.grid[1] = 0x3320646e
-	this.grid[2] = 0x79622d32
-	this.grid[3] = 0x6b206574
+	cc20.grid[0] = 0x61707865
+	cc20.grid[1] = 0x3320646e
+	cc20.grid[2] = 0x79622d32
+	cc20.grid[3] = 0x6b206574
 
 	// 256 bits key as 8 Little Endian uint32
 	for j := uint32(0); j < 8; j++ {
-		this.grid[j+4] = 0
+		cc20.grid[j+4] = 0
 		for i := uint32(0); i < 4; i++ {
-			this.grid[j+4] += uint32(key[(j<<2)+i]) << (i << 3)
+			cc20.grid[j+4] += uint32(key[(j<<2)+i]) << (i << 3)
 		}
 	}
 
 	// block counter
-	this.grid[12] = counter
+	cc20.grid[12] = counter
 
 	// nonce as 3 consecutives Little Endian uint32
 	for j := uint32(0); j < 3; j++ {
-		this.grid[j+13] = 0
+		cc20.grid[j+13] = 0
 		for i := uint32(0); i < 4; i++ {
-			this.grid[j+13] += uint32(nonce[(j<<2)+i]) << (i << 3)
+			cc20.grid[j+13] += uint32(nonce[(j<<2)+i]) << (i << 3)
 		}
 	}
-	return nil
+	return cc20, nil
+}
+
+// SetPacketSequenceNumber initialize the ChaCha20 nonce based on the QUIC packet sequence number and set the block counter to 1.
+func (this *ChaCha20Cipher) SetPacketSequenceNumber(sequencenumber protocol.QuicPacketSequenceNumber) {
+	this.grid[12] = 1
+	this.grid[14] = uint32(sequencenumber & 0xffffffff)
+	this.grid[15] = uint32(sequencenumber >> 32)
 }
 
 // GetNetxKeystream fills the keystream bytes array corresponding to the current state of ChaCha20 grid and increment the block counter for the next block of keystream.

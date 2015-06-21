@@ -4,14 +4,17 @@ import "testing"
 import "bytes"
 
 func Test_ChaCha20(t *testing.T) {
+	var cipher *ChaCha20Cipher
+	var err error
 
 	// ChaCha20 algorithm and test vector from https://tools.ietf.org/html/rfc7539
 
-	cipher := new(ChaCha20Cipher)
 	keystream := new([64]byte)
 	key := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 	nonce := []byte{0, 0, 0, 0x09, 0, 0, 0, 0x4a, 0, 0, 0, 0}
-	cipher.Setup(key, nonce, 1)
+	if cipher, err = NewChaCha20Cipher(key, nonce, 1); err != nil {
+		t.Error(err)
+	}
 	cipher.GetNextKeystream(keystream)
 	if !bytes.Equal(keystream[:], []byte{
 		0x10, 0xf1, 0xe7, 0xe4, 0xd1, 0x3b, 0x59, 0x15, 0x50, 0x0f, 0xdd, 0x1f, 0xa3, 0x20, 0x71, 0xc4,
@@ -23,7 +26,9 @@ func Test_ChaCha20(t *testing.T) {
 
 	key = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 	nonce = []byte{0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0}
-	cipher.Setup(key, nonce, 1)
+	if cipher, err = NewChaCha20Cipher(key, nonce, 1); err != nil {
+		t.Error(err)
+	}
 	cipher.GetNextKeystream(keystream)
 	if !bytes.Equal(keystream[:], []byte{
 		0x22, 0x4f, 0x51, 0xf3, 0x40, 0x1b, 0xd9, 0xe1, 0x2f, 0xde, 0x27, 0x6f, 0xb8, 0x63, 0x1d, 0xed,
