@@ -10,22 +10,12 @@ func NewAEAD_FNV1A128() AEAD {
 	return new(AEAD_NullFNV1A128)
 }
 
-// SetKey
-func (this *AEAD_NullFNV1A128) SetKey(key []byte) error {
-	return nil
-}
-
-//SetNoncePrefix
-func (this *AEAD_NullFNV1A128) SetNoncePrefix(nonce []byte) error {
-	return nil
-}
-
 // Open
-func (this *AEAD_NullFNV1A128) Open(sequencenumber protocol.QuicPacketSequenceNumber, cleartext, associateddata, ciphertext, tag []byte) error {
+func (this *AEAD_NullFNV1A128) Open(sequencenumber protocol.QuicPacketSequenceNumber, cleartext, aad, ciphertext []byte) error {
 	return nil
 }
 
 // Seal
-func (this *AEAD_NullFNV1A128) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, tag, associateddata, cleartext []byte) error {
+func (this *AEAD_NullFNV1A128) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, cleartext []byte) error {
 	return nil
 }

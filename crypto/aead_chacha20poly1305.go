@@ -1,7 +1,9 @@
 package crypto
 
 import "github.com/romain-jacotin/quic/protocol"
+import "encoding/binary"
 import "errors"
+import "fmt"
 
 type AEAD_ChaCha20Poly1305 struct {
 	cipher *ChaCha20Cipher
@@ -32,11 +34,25 @@ func NewAEAD_ChaCha20Poly1305(key, nonceprefix []byte) (AEAD, error) {
 }
 
 // Open
-func (this *AEAD_ChaCha20Poly1305) Open(sequencenumber protocol.QuicPacketSequenceNumber, cleartext, associateddata, ciphertext, tag []byte) error {
+func (this *AEAD_ChaCha20Poly1305) Open(sequencenumber protocol.QuicPacketSequenceNumber, cleartext, aad, ciphertext []byte) error {
+	// Check the MAC
+	l := len(ciphertext)
+	if l < 12 {
+		return errors.New("AEAD_ChaCha20Poly1305 : Message Authentication Code can't be less than 12 bytes")
+	}
+	low := binary.LittleEndian.Uint64(ciphertext[l-12:])
+	high := binary.LittleEndian.Uint32(ciphertext[l-4:])
+	testhigh, testlow := this.hasher.ComputeAeadMAC(aad, ciphertext[:l-12])
+	if (low != testlow) || (high != uint32(testhigh&0xffffffff)) {
+		return fmt.Errorf("AEAD_ChaCha20Poly1305 : invalid Message Authentication Code %x:%x versus %x:%x", low, high, testlow, testhigh)
+	}
+	// Then decrypt
+	this.cipher.SetPacketSequenceNumber(sequencenumber)
+
 	return nil
 }
 
 // Seal
-func (this *AEAD_ChaCha20Poly1305) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, tag, associateddata, cleartext []byte) error {
+func (this *AEAD_ChaCha20Poly1305) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) error {
 	return nil
 }
