@@ -1,10 +1,12 @@
 package crypto
 
 import "errors"
+import "encoding/binary"
 
 type Poly1305 struct {
-	r0, r1, r2, s1_low, s1_high, s2_low, s2_high uint64
-	s_key_begin, s_key_end                       uint64
+	r0, r1, r2                       uint64 // r_key coded in a uint130 (44-bit + 44-bit + 42-bit)
+	s_key_begin, s_key_end           uint64 // s_key coded in two uint64
+	s1_low, s1_high, s2_low, s2_high uint64 // precomputation for code optimization
 }
 
 func NewPoly1305(key []byte) (*Poly1305, error) {
@@ -13,6 +15,13 @@ func NewPoly1305(key []byte) (*Poly1305, error) {
 	}
 	p := new(Poly1305)
 
+	// Variables initialization: read 'r' and 's' as Little Endian unsigned int
+	// r &= 0xffffffc0ffffffc0ffffffc0fffffff as required by the Poly1305 specifications
+	//
+	// NOTE: we need 'r', 'h' and 'c' to be uint130 because of the required modulus 2^130 - 5
+	//       uint130(r) = 42 most significant bits(r2) + 44 middle bits(r1) + 44 less significant bits(r0)
+
+	// r0 = LSB 44 bits of 'r' as uint130
 	p.r0 = uint64(key[0]) |
 		(uint64(key[1]) << 8) |
 		(uint64(key[2]) << 16) |
@@ -21,6 +30,7 @@ func NewPoly1305(key []byte) (*Poly1305, error) {
 		(uint64(key[5]) << 40)
 	p.r0 &= 0xffc0fffffff
 
+	// r1 = middle 44 bits of 'r' as uint130
 	p.r1 = (uint64(key[5]) >> 4) |
 		(uint64(key[6]) << 4) |
 		(uint64(key[7]) << 12) |
@@ -29,6 +39,7 @@ func NewPoly1305(key []byte) (*Poly1305, error) {
 		(uint64(key[10]) << 36)
 	p.r1 &= 0xfffffc0ffff
 
+	// r2 = MSB 42 bits of 'r' as uint130
 	p.r2 = uint64(key[11]) |
 		(uint64(key[12]) << 8) |
 		(uint64(key[13]) << 16) |
@@ -36,16 +47,16 @@ func NewPoly1305(key []byte) (*Poly1305, error) {
 		(uint64(key[15]) << 32)
 	p.r2 &= 0x00ffffffc0f
 
+	// Read 's' as Little Endian uint128 (s_key_begin = low 64 bits, s_key_end = high 64 bits)
+	p.s_key_begin = binary.LittleEndian.Uint64(key[16:])
+	p.s_key_end = binary.LittleEndian.Uint64(key[24:])
+
+	// Precomputation for code optimization
 	p.s1_low = (p.r1 * (5 << 2)) & 0xffffffff
 	p.s1_high = (p.r1 * (5 << 2)) >> 32
 
 	p.s2_low = (p.r2 * (5 << 2)) & 0xffffffff
 	p.s2_high = (p.r2 * (5 << 2)) >> 32
-
-	for i := uint(0); i < 8; i++ {
-		p.s_key_begin |= uint64(key[i+16]) << (i << 3)
-		p.s_key_end |= uint64(key[i+24]) << (i << 3)
-	}
 
 	return p, nil
 }
