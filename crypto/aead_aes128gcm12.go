@@ -37,11 +37,11 @@ func (this *AEAD_AES128GCM12) SetNoncePrefix(nonceprefix []byte) error {
 }
 
 // Open
-func (this *AEAD_AES128GCM12) Open(sequencenumber protocol.QuicPacketSequenceNumber, plaintext, aad, ciphertext []byte) error {
-	return nil
+func (this *AEAD_AES128GCM12) Open(sequencenumber protocol.QuicPacketSequenceNumber, plaintext, aad, ciphertext []byte) (bytescount int, err error) {
+	return
 }
 
 // Seal
-func (this *AEAD_AES128GCM12) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) error {
-	return nil
+func (this *AEAD_AES128GCM12) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) (bytescount int, err error) {
+	return
 }

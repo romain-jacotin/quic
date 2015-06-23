@@ -11,11 +11,11 @@ func NewAEAD_FNV1A128() AEAD {
 }
 
 // Open
-func (this *AEAD_NullFNV1A128) Open(sequencenumber protocol.QuicPacketSequenceNumber, cleartext, aad, ciphertext []byte) error {
-	return nil
+func (this *AEAD_NullFNV1A128) Open(sequencenumber protocol.QuicPacketSequenceNumber, plaintext, aad, ciphertext []byte) (bytescount int, err error) {
+	return
 }
 
 // Seal
-func (this *AEAD_NullFNV1A128) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, cleartext []byte) error {
-	return nil
+func (this *AEAD_NullFNV1A128) Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) (bytescount int, err error) {
+	return
 }

@@ -6,7 +6,8 @@ import "errors"
 // ChaCha20 algorithm and test vector from https://tools.ietf.org/html/rfc7539
 
 type ChaCha20Cipher struct {
-	grid [16]uint32
+	grid   [16]uint32
+	buffer [64]byte
 }
 
 // Setup initialize the ChaCha20 grid based on the key, nonce and block counter.
@@ -73,6 +74,40 @@ func (this *ChaCha20Cipher) SetPacketSequenceNumber(sequencenumber protocol.Quic
 	this.grid[12] = 1
 	this.grid[14] = uint32(sequencenumber & 0xffffffff)
 	this.grid[15] = uint32(sequencenumber >> 32)
+}
+
+// Decrypt returns the numbers of decrypted bytes in the plaintext slice of the ciphertext slice and returns an error if the size of plaintext is less than ciphertext length without MAC.
+func (this *ChaCha20Cipher) Decrypt(plaintext, ciphertext []byte) (bytescount int, err error) {
+	l := len(ciphertext)
+	if len(plaintext) < l {
+		err = errors.New("ChaCha20Cipher.Decrypt : plaintext must have equal length or more than ciphertext")
+		return
+	}
+	for bytescount = 0; bytescount < l; bytescount++ {
+		i := bytescount % 64
+		if i == 0 {
+			this.GetNextKeystream(&this.buffer)
+		}
+		plaintext[bytescount] = ciphertext[bytescount] ^ this.buffer[i]
+	}
+	return
+}
+
+// Encrypt returns in the cleartext slice the result of the encrypted plaintext slice.
+func (this *ChaCha20Cipher) Encrypt(ciphertext, plaintext []byte) (bytescount int, err error) {
+	l := len(plaintext)
+	if len(ciphertext) < l {
+		err = errors.New("ChaCha20Cipher.Encrypt : ciphertext must have equal length or more than plaintext")
+		return
+	}
+	for bytescount = 0; bytescount < l; bytescount++ {
+		i := bytescount % 64
+		if i == 0 {
+			this.GetNextKeystream(&this.buffer)
+		}
+		ciphertext[bytescount] = plaintext[bytescount] ^ this.buffer[i]
+	}
+	return
 }
 
 // GetNetxKeystream fills the keystream bytes array corresponding to the current state of ChaCha20 grid and increment the block counter for the next block of keystream.

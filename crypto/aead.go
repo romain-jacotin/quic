@@ -4,7 +4,7 @@ import "github.com/romain-jacotin/quic/protocol"
 
 type AEAD interface {
 	// Open
-	Open(sequencenumber protocol.QuicPacketSequenceNumber, plaintext, aad, ciphertext []byte) error
+	Open(sequencenumber protocol.QuicPacketSequenceNumber, plaintext, aad, ciphertext []byte) (bytescount int, err error)
 	// Seal
-	Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) error
+	Seal(sequencenumber protocol.QuicPacketSequenceNumber, ciphertext, aad, plaintext []byte) (bytescount int, err error)
 }
