@@ -10,7 +10,7 @@ type AEAD_ChaCha20Poly1305 struct {
 	hasher *Poly1305
 }
 
-// NewAEAD_ChaCha20Poly1305 returns a *AEAD_ChaCha20Poly1305 that implements AEAD interface
+// NewAEAD_ChaCha20Poly1305 is an *AEAD_ChaCha20Poly1305 factory that implements AEAD interface
 func NewAEAD_ChaCha20Poly1305(key, nonceprefix []byte) (AEAD, error) {
 	var buf [64]byte
 	var err error
@@ -39,6 +39,10 @@ func (this *AEAD_ChaCha20Poly1305) Open(seqnum protocol.QuicPacketSequenceNumber
 	l := len(ciphertext) - 12
 	if l < 0 {
 		err = errors.New("AEAD_ChaCha20Poly1305.Open : Message Authentication Code can't be less than 12 bytes")
+		return
+	}
+	if len(plaintext) < l {
+		err = errors.New("AEAD_ChaCha20Poly1305.Open : plaintext must same have length as ciphertext less 12 bytes at minimum")
 		return
 	}
 	low := binary.LittleEndian.Uint64(ciphertext[l:])
@@ -75,4 +79,9 @@ func (this *AEAD_ChaCha20Poly1305) Seal(seqnum protocol.QuicPacketSequenceNumber
 	binary.LittleEndian.PutUint32(ciphertext[l+8:], uint32(high))
 	bytescount += 12
 	return
+}
+
+// GetMacSize
+func (this *AEAD_ChaCha20Poly1305) GetMacSize() int {
+	return 12
 }

@@ -50,3 +50,8 @@ func (this *AEAD_NullFNV1A128) Seal(sequencenumber protocol.QuicPacketSequenceNu
 	bytescount = l + 12
 	return
 }
+
+// GetMacSize
+func (this *AEAD_NullFNV1A128) GetMacSize() int {
+	return 12
+}

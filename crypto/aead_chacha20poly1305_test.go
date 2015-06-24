@@ -5,7 +5,7 @@ import "bytes"
 import "encoding/binary"
 import "github.com/romain-jacotin/quic/protocol"
 
-func Test_Open(t *testing.T) {
+func Test_AEAD_ChaChaPoly1305_Open(t *testing.T) {
 	var aead AEAD
 	var err error
 	var l int
@@ -154,7 +154,7 @@ func Test_Open(t *testing.T) {
 	}
 }
 
-func Test_Seal(t *testing.T) {
+func Test_AEAD_ChaChaPoly1305_Seal(t *testing.T) {
 	var aead AEAD
 	var err error
 	var l int
@@ -303,7 +303,7 @@ func Test_Seal(t *testing.T) {
 	}
 }
 
-func Test_KeyGeneratorPoly1305(t *testing.T) {
+func Test_AEAD_ChaChaPoly1305_KeyGeneratorPoly1305(t *testing.T) {
 	var buf [64]byte
 	var cipher *ChaCha20Cipher
 	var err error
