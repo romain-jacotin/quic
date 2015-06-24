@@ -15,7 +15,7 @@ type testVector struct {
 	tag        string
 }
 
-var testsAED128GCM = []testVector{
+var testsAES128GCM12 = []testVector{
 	{
 		// Test Case 1 from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf
 		"00000000000000000000000000000000", // key
@@ -77,7 +77,7 @@ func toByte(s string) []byte {
 func Test_AEAD_AES128GCM12_Open(t *testing.T) {
 	var key, nonce, aad, plaintext, ciphertext, tag []byte
 
-	for _, i := range testsAED128GCM {
+	for _, i := range testsAES128GCM12 {
 
 		key = toByte(i.key)
 		nonce = toByte(i.nonce)
@@ -95,7 +95,7 @@ func Test_AEAD_AES128GCM12_Open(t *testing.T) {
 func Test_AEAD_AES128GCM12_Seal(t *testing.T) {
 	var key, nonce, aad, plaintext, ciphertext, tag []byte
 
-	for _, i := range testsAED128GCM {
+	for _, i := range testsAES128GCM12 {
 
 		key = toByte(i.key)
 		nonce = toByte(i.nonce)

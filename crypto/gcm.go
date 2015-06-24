@@ -27,7 +27,7 @@ func (this *AEAD_AES128GCM12) computeGHash(aad, ciphertext []byte) {
 	// STEP 6:
 	// Xm+n+1 = (Xm+n xor (len(A) || len(C))) * H
 
-	var x0, x1, a0, a1 uint64
+	var x0, x1, a0, a1, v0, v1, y0, y1 uint64
 	var i, j, k, l uint32
 
 	m := uint32(len(aad))
@@ -58,7 +58,60 @@ func (this *AEAD_AES128GCM12) computeGHash(aad, ciphertext []byte) {
 			l++
 		}
 		// Compute Xi = (Xi−1 xor Ai) * H
-		x0, x1 = this.multH(x0^a0, x1^a1)
+
+		//x0, x1 = this.multH(x0^a0, x1^a1)
+		v0 = x0 ^ a0
+		v1 = x1 ^ a1
+		x0 = 0
+		x1 = 0
+		y0 = this.h0
+		y1 = this.h1
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y1 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y0 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
 	}
 
 	// STEP 3: Compute Xm = (Xm-1 xor (Am || 0^(128−v)) * H
@@ -84,7 +137,60 @@ func (this *AEAD_AES128GCM12) computeGHash(aad, ciphertext []byte) {
 			}
 		}
 		// Compute Xm = (Xm-1 xor (Am || 0^(128−v)) * H
-		x0, x1 = this.multH(x0^a0, x1^a1)
+
+		// x0, x1 = this.multH(x0^a0, x1^a1)
+		v0 = x0 ^ a0
+		v1 = x1 ^ a1
+		x0 = 0
+		x1 = 0
+		y0 = this.h0
+		y1 = this.h1
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y1 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y0 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
 	}
 
 	// STEP 4: Compute Xm+1 to Xm+n-1
@@ -102,7 +208,60 @@ func (this *AEAD_AES128GCM12) computeGHash(aad, ciphertext []byte) {
 			l++
 		}
 		// Compute Xi = (Xi−1 xor Ci−m) * H
-		x0, x1 = this.multH(x0^a0, x1^a1)
+
+		// x0, x1 = this.multH(x0^a0, x1^a1)
+		v0 = x0 ^ a0
+		v1 = x1 ^ a1
+		x0 = 0
+		x1 = 0
+		y0 = this.h0
+		y1 = this.h1
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y1 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y0 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
 	}
 
 	// STEP 5: Compute Xm+n = (Xm+n-1 xor (Cn||0^(128−u)) * H
@@ -128,52 +287,77 @@ func (this *AEAD_AES128GCM12) computeGHash(aad, ciphertext []byte) {
 			}
 		}
 		// Compute Xm+n = (Xm+n-1 xor (Cn||0^(128−u)) * H
-		x0, x1 = this.multH(x0^a0, x1^a1)
+
+		// x0, x1 = this.multH(x0^a0, x1^a1)
+		v0 = x0 ^ a0
+		v1 = x1 ^ a1
+		x0 = 0
+		x1 = 0
+		y0 = this.h0
+		y1 = this.h1
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y1 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
+		for l = 0; l < 64; l++ {
+			//   if Yi = 1 then Z = Z xor V
+			if (y0 & (1 << (63 - l))) > 0 {
+				x0 ^= v0
+				x1 ^= v1
+			}
+			//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
+			if (v0 & 1) == 0 {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+			} else {
+				v0 >>= 1
+				if (v1 & 1) == 1 {
+					v0 |= 0x8000000000000000
+				}
+				v1 >>= 1
+				v1 ^= 0xe100000000000000
+				v0 ^= 0
+			}
+		}
+
 	}
 
 	// STEP 6: Xm+n+1 = (Xm+n xor (len(A) || len(C))) * H
-	x0, x1 = this.multH(x0^u, x1^v)
 
-	// Write GHASH as Little Endian
-	for i = 0; i < 8; i++ {
-		this.ghash[i] = byte(x1 >> (56 - (i << 3)))
-		this.ghash[i+8] = byte(x0 >> (56 - (i << 3)))
-	}
-}
-
-// multH
-func (this *AEAD_AES128GCM12) multH(v0, v1 uint64) (z0, z1 uint64) {
-
-	// Multiplication in Galois Field (2^128): Computes the value of Z = X * Y, where X,Y and Z are one of GF(2^128).
-	//
-	// Z = 0
-	// V = X
-	// R = 11100001 || 0^120
-	//
-	// for i = 0 to 127 do
-	//
-	//   if Yi = 1 then Z = Z xor V
-	//   end if
-	//
-	//   if V127 = 0 then
-	//     V = rightshift( V )
-	//   else
-	//     V = rightshift( V ) xor R
-	//   end if
-	//
-	// end for
-
-	var l uint32
-	// z0 = z1 = 0 (default uint64 value)
-
-	y0 := this.h0
-	y1 := this.h1
-
+	//x0, x1 = this.multH(x0^u, x1^v)
+	v0 = x0 ^ u
+	v1 = x1 ^ v
+	x0 = 0
+	x1 = 0
+	y0 = this.h0
+	y1 = this.h1
 	for l = 0; l < 64; l++ {
 		//   if Yi = 1 then Z = Z xor V
 		if (y1 & (1 << (63 - l))) > 0 {
-			z0 ^= v0
-			z1 ^= v1
+			x0 ^= v0
+			x1 ^= v1
 		}
 		//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
 		if (v0 & 1) == 0 {
@@ -195,8 +379,8 @@ func (this *AEAD_AES128GCM12) multH(v0, v1 uint64) (z0, z1 uint64) {
 	for l = 0; l < 64; l++ {
 		//   if Yi = 1 then Z = Z xor V
 		if (y0 & (1 << (63 - l))) > 0 {
-			z0 ^= v0
-			z1 ^= v1
+			x0 ^= v0
+			x1 ^= v1
 		}
 		//   if V127 = 0 then V = righshift( V ) else V = rightshift( V ) xor R
 		if (v0 & 1) == 0 {
@@ -215,5 +399,10 @@ func (this *AEAD_AES128GCM12) multH(v0, v1 uint64) (z0, z1 uint64) {
 			v0 ^= 0
 		}
 	}
-	return
+
+	// Write GHASH as Little Endian
+	for i = 0; i < 8; i++ {
+		this.ghash[i] = byte(x1 >> (56 - (i << 3)))
+		this.ghash[i+8] = byte(x0 >> (56 - (i << 3)))
+	}
 }

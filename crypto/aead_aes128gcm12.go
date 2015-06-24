@@ -23,8 +23,8 @@ func NewAEAD_AES128GCM12(key, nonce []byte) (AEAD, error) {
 	if len(key) < 16 {
 		return nil, errors.New("NewAEAD_AES128GCM12 : key must be 16 bytes at minimum")
 	}
-	if len(nonce) < 12 {
-		return nil, errors.New("NewAEAD_AES128GCM12 : key must be 12 bytes at minimum")
+	if len(nonce) < 4 {
+		return nil, errors.New("NewAEAD_AES128GCM12 : nonce must be 4 bytes at minimum")
 	}
 	aead := new(AEAD_AES128GCM12)
 	if aead.cipher, err = aes.NewCipher(key[:16]); err != nil {
