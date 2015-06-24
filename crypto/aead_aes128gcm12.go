@@ -16,12 +16,15 @@ type AEAD_AES128GCM12 struct {
 }
 
 // NewAEAD_AES128GCM12 returns a *AEAD_AES128GCM12 that implements crypto.AEAD interface
-func NewAEAD_AES128GCM12(key, nonceprefix []byte) (AEAD, error) {
+func NewAEAD_AES128GCM12(key, nonce []byte) (AEAD, error) {
 	var err error
 	var i uint
 
 	if len(key) < 16 {
 		return nil, errors.New("NewAEAD_AES128GCM12 : key must be 16 bytes at minimum")
+	}
+	if len(nonce) < 12 {
+		return nil, errors.New("NewAEAD_AES128GCM12 : key must be 12 bytes at minimum")
 	}
 	aead := new(AEAD_AES128GCM12)
 	if aead.cipher, err = aes.NewCipher(key[:16]); err != nil {
@@ -33,7 +36,7 @@ func NewAEAD_AES128GCM12(key, nonceprefix []byte) (AEAD, error) {
 		aead.h0 += uint64(aead.y[i+8]) << (56 - (i << 3))
 	}
 	for i = 0; i < 4; i++ {
-		aead.nonce[i] = nonceprefix[i]
+		aead.nonce[i] = nonce[i]
 	}
 	return aead, nil
 }
