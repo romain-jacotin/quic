@@ -8,5 +8,5 @@ type DataParser interface {
 // DataSerializer interface
 type DataSerialize interface {
 	GetSerializedSize() int
-	GetSerializedData(data []byte) (size int, err error)
+	GetSerializedData() (data []byte, err error)
 }
