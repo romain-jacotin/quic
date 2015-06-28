@@ -15,15 +15,21 @@ type QuicPacket struct {
 	// If Frames Packet only
 	framesSet []QuicFrame // framesSet uses frameBuffer array for the first cFRAMEBUFFERSIZE frames and after need making bigger slices
 	// internal buffers
-	buffer      [1480]byte                  // internal buffer to store serialized QUIC Packet at reception or before encryption and transmit
+	buffer      [1472]byte                  // internal buffer to store serialized QUIC Packet at reception or before encryption and transmit
 	frameBuffer [cFRAMEBUFFERSIZE]QuicFrame // array used by framesSet for the first cFRAMEBUFFERSIZE frames only
+}
+
+// Erase
+func (this *QuicPacket) Erase() {
+	this.framesSet = nil
+	this.fecPacket.redundancy = nil
 }
 
 // ParseData
 func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
-	var i, s, l, left int
+	var s int
 
-	l = len(data)
+	l := len(data)
 	// Parse QuicPublicHeader
 	if s, err = this.publicHeader.ParseData(data); err != nil {
 		// Error while parsing QuicPublicHeader
@@ -53,8 +59,8 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 			size += s
 		} else {
 			// Parse Frames vector
-			i = 0
-			for left = l - size; left > 0; i++ {
+			i := 0
+			for left := l - size; left > 0; i++ {
 				if i == 0 { // initialize the frames set to use frameBuffer array
 					this.framesSet = this.frameBuffer[:1]
 				} else if (i % cFRAMEBUFFERSIZE) > 0 { // grow the frame set by using existing slice capacity (+1)
@@ -73,7 +79,7 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 		}
 	}
 	if size != l {
-		err = errors.New("QuicPacket.ParseData : internal error parsed bytes count different from data size")
+		err = errors.New("QuicPacket.ParseData : internal error parsed bytes count different from data size") // Must be impossible
 	}
 	return
 }
