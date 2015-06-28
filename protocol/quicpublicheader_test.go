@@ -38,7 +38,7 @@ type testquicpublicheader struct {
 	version         QuicVersion
 	connId          QuicConnectionID
 	seqNum          QuicPacketSequenceNumber
-	positifTest     bool
+	positiveTest    bool
 }
 
 var tests_quicpublicheader = []testquicpublicheader{
@@ -138,7 +138,7 @@ func Test_QuicPublicHeader_ParseData(t *testing.T) {
 
 	for i, v := range tests_quicpublicheader {
 		s, err := pub.ParseData(v.data)
-		if v.positifTest {
+		if v.positiveTest {
 			if err != nil {
 				t.Errorf("ParseData = error %s in test n°%v", err, i)
 			}
@@ -176,7 +176,7 @@ func Test_QuicPublicHeader_GetSerializedData(t *testing.T) {
 
 	data := make([]byte, 19)
 	for i, v := range tests_quicpublicheader {
-		if v.positifTest {
+		if v.positiveTest {
 			pub.SetPublicResetFlag(v.flagPublicReset)
 			pub.SetVersionFlag(v.flagVersion)
 			pub.SetVersion(v.version)

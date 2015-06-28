@@ -54,9 +54,9 @@ var parsePublicheaderConnectionIdSize = []int{0, 1, 4, 8, 0, 1, 4, 8, 0, 1, 4, 8
 var parsePublicheaderSequenceNumberSize = []int{1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6}
 
 const (
-	// Mask and flags for Version in QuicPublicHeader
+	// Mask and flag for Version in QuicPublicHeader
 	QUICFLAG_VERSION = 0x01
-	// Mask and flags for Public reset in QuicPublicHeader
+	// Mask and flag for Public reset in QuicPublicHeader
 	QUICFLAG_PUBLICRESET = 0x02
 	// Mask and flags for Connection ID size in QuicPublicHeader
 	QUICMASK_CONNID_SIZE  = 0x0C

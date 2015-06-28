@@ -50,7 +50,7 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 			return
 		}
 		size += s
-		if this.privateHeader.GetFecFlag() {
+		if this.privateHeader.GetFecPacketFlag() {
 			// Parse Fec redundancy payload
 			if s, err = this.fecPacket.ParseData(data[size:]); err != nil {
 				// Error while parsing QuicPrivateHeader
