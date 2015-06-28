@@ -1,4 +1,4 @@
-package crypto
+package protocol
 
 import "testing"
 import "bytes"
@@ -21,70 +21,70 @@ func Test_Parser(t *testing.T) {
 
 	msg := <-out
 	if msg.GetMessageTag() != TagCHLO {
-		t.Error("crypto.Parser: invalid message tag")
+		t.Error("Parser: invalid message tag")
 	}
 	if msg.GetNumEntries() != 0 {
-		t.Error("crypto.Parser: invalid number of tag/value entries")
+		t.Error("Parser: invalid number of tag/value entries")
 	}
 
 	msg = <-out
 	if msg.GetMessageTag() != TagCHLO {
-		t.Error("crypto.Parser: invalid message tag")
+		t.Error("Parser: invalid message tag")
 	}
 	if msg.GetNumEntries() != 1 {
-		t.Error("crypto.Parser: invalid number of tag/value entries")
+		t.Error("Parser: invalid number of tag/value entries")
 	}
 	if b, v = msg.ContainsTag(TagSNI); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{1}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 
 	msg = <-out
 	if msg.GetMessageTag() != TagCHLO {
-		t.Error("crypto.Parser: invalid message tag")
+		t.Error("Parser: invalid message tag")
 	}
 	if msg.GetNumEntries() != 2 {
-		t.Error("crypto.Parser: invalid number of tag/value entries")
+		t.Error("Parser: invalid number of tag/value entries")
 	}
 	if b, v = msg.ContainsTag(TagSNI); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{1}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 	if b, v = msg.ContainsTag(TagCETV); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{2, 3}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 
 	msg = <-out
 	if msg.GetMessageTag() != TagCHLO {
-		t.Error("crypto.Parser: invalid message tag")
+		t.Error("Parser: invalid message tag")
 	}
 	if msg.GetNumEntries() != 3 {
-		t.Error("crypto.Parser: invalid number of tag/value entries")
+		t.Error("Parser: invalid number of tag/value entries")
 	}
 	if b, v = msg.ContainsTag(TagSNI); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{1}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 	if b, v = msg.ContainsTag(TagCETV); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{2, 3}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 	if b, v = msg.ContainsTag(TagAEAD); !b {
-		t.Error("crypto.Parser: tag is not exist in the crypto.Message")
+		t.Error("Parser: tag is not exist in the Message")
 	}
 	if !bytes.Equal(v, []byte{4, 5, 6}) {
-		t.Error("crypto.Parser: invalid tag value")
+		t.Error("Parser: invalid tag value")
 	}
 	parser.Stop()
 }

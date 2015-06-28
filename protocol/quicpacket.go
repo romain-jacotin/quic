@@ -21,13 +21,17 @@ type QuicPacket struct {
 
 // Erase
 func (this *QuicPacket) Erase() {
+	this.publicHeader.Erase()
+	this.privateHeader.Erase()
+	this.fecPacket.Erase()
+	this.publicReset.Erase()
 	this.framesSet = nil
-	this.fecPacket.redundancy = nil
 }
 
 // ParseData
 func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 	var s int
+	var fecgroupnum QuicFecGroupNumberOffset
 
 	l := len(data)
 	// Parse QuicPublicHeader
@@ -51,6 +55,11 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 		}
 		size += s
 		if this.privateHeader.GetFecPacketFlag() {
+			// Setup the FEC Packet based on Sequence Number and FEC Group Offset
+			if fecgroupnum, err = this.privateHeader.GetFecGroupNumberOffset(); err != nil {
+				return
+			}
+			this.fecPacket.Setup(this.publicHeader.GetSequenceNumber(), fecgroupnum)
 			// Parse Fec redundancy payload
 			if s, err = this.fecPacket.ParseData(data[size:]); err != nil {
 				// Error while parsing QuicPrivateHeader

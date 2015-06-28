@@ -81,6 +81,10 @@ func (this *QuicPrivateHeader) ParseData(data []byte) (size int, err error) {
 	// Parse FEC Packet flag
 	if (pv & QUICFLAG_FECPACKET) == QUICFLAG_FECPACKET {
 		this.flagFecPacket = true
+		if !this.flagFecGroup {
+			err = errors.New("QuicPrivateHeader.ParseData : internal error FEC packet must have FEC Group Number offset") // Must be impossible
+			return
+		}
 	}
 	return
 }
@@ -97,6 +101,10 @@ func (this *QuicPrivateHeader) GetSerializedSize() (size int) {
 func (this *QuicPrivateHeader) GetSerializedData(data []byte) (size int, err error) {
 	var pv QuicFecGroupNumberOffset
 
+	if this.flagFecPacket && (!this.flagFecGroup) {
+		err = errors.New("QuicPrivateHeader.GetSerializedData : internal error FEC packet must have FEC Group Number offset") // Must be impossible
+		return
+	}
 	if this.flagFecGroup {
 		size = 2
 	} else {
@@ -105,7 +113,7 @@ func (this *QuicPrivateHeader) GetSerializedData(data []byte) (size int, err err
 	// Check minimum data size
 	if len(data) < size {
 		size = 0
-		err = errors.New("QuicPrivateHeader.GetSerializedData")
+		err = errors.New("QuicPrivateHeader.GetSerializedData : data size too small to contain Private Header")
 		return
 	}
 	// Serialized Entropy flag
@@ -162,8 +170,13 @@ func (this *QuicPrivateHeader) SetEntropyFlag(state bool) {
 }
 
 // GetFecGroupNumberOffset
-func (this *QuicPrivateHeader) GetFecGroupNumberOffset() QuicFecGroupNumberOffset {
-	return this.fecGroupNumberOffset
+func (this *QuicPrivateHeader) GetFecGroupNumberOffset() (offset QuicFecGroupNumberOffset, err error) {
+	if this.flagFecGroup {
+		offset = this.fecGroupNumberOffset
+		return
+	}
+	err = errors.New("QuicPrivateHeader.GetFecGroupNumberOffset : no FEC Group Number offset in this Private Header")
+	return
 }
 
 // SetFecGroupNumberOffset

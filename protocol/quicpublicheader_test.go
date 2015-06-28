@@ -57,11 +57,11 @@ var tests_quicpublicheader = []testquicpublicheader{
 	{[]byte{QUICFLAG_VERSION | QUICFLAG_CONNID_0bit | QUICFLAG_SEQNUM_8bit, 0x04, 0x03, 0x02, 0x01, 0x0d},
 		false, true, 0x01020304, 0, 0x0d, true},
 
-	{[]byte{QUICFLAG_PUBLICRESET | QUICFLAG_CONNID_0bit | QUICFLAG_SEQNUM_8bit, 0x0d},
-		true, false, 0, 0, 0x0d, true},
+	{[]byte{QUICFLAG_CONNID_0bit | QUICFLAG_SEQNUM_8bit, 0x0d},
+		false, false, 0, 0, 0x0d, true},
 
-	{[]byte{QUICFLAG_VERSION | QUICFLAG_PUBLICRESET | QUICFLAG_CONNID_0bit | QUICFLAG_SEQNUM_8bit, 0x04, 0x03, 0x02, 0x01, 0x0d},
-		true, true, 0x01020304, 0, 0x0d, true},
+	{[]byte{QUICFLAG_VERSION | QUICFLAG_CONNID_0bit | QUICFLAG_SEQNUM_8bit, 0x04, 0x03, 0x02, 0x01, 0x0d},
+		false, true, 0x01020304, 0, 0x0d, true},
 
 	// Tests[6-13] with various Connection ID size and Version flags
 
@@ -131,6 +131,11 @@ var tests_quicpublicheader = []testquicpublicheader{
 
 	{[]byte{QUICFLAG_VERSION | QUICFLAG_CONNID_64bit | QUICFLAG_SEQNUM_48bit, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x04, 0x03, 0x02, 0x01, 0x0d, 0x0c, 0x0b, 0x0a, 0xdd, 0xcc},
 		false, true, 0x01020304, 0x1122334455667788, 0xccdd0a0b0c0d, true},
+
+	// Tests [27-30] various Public Reset
+
+	{[]byte{QUICFLAG_PUBLICRESET | QUICFLAG_CONNID_64bit | QUICFLAG_SEQNUM_8bit, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11},
+		true, false, 0, 0x1122334455667788, 0, true},
 }
 
 func Test_QuicPublicHeader_ParseData(t *testing.T) {

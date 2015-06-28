@@ -35,8 +35,8 @@ var tests_quicprivateheader = []testquicprivateheader{
 	{false, []byte{0x07}, true, true, true, 0x66},
 	// Test[3-6] various FEC Group and Entropy flags with FEC Packet flag set
 	{true, []byte{QUICFLAG_FECPACKET | QUICFLAG_FECGROUP, 0x42}, true, true, false, 0x42},
-	{true, []byte{QUICFLAG_FECPACKET | QUICFLAG_ENTROPY}, true, false, true, 0},
-	{true, []byte{QUICFLAG_FECPACKET}, true, false, false, 0},
+	{false, []byte{QUICFLAG_FECPACKET | QUICFLAG_ENTROPY}, true, false, true, 0},
+	{false, []byte{QUICFLAG_FECPACKET}, true, false, false, 0},
 	{true, []byte{QUICFLAG_FECPACKET | QUICFLAG_FECGROUP | QUICFLAG_ENTROPY, 0x42}, true, true, true, 0x42},
 	// Test[7-10] various FEC Group and Entropy flags with FEC Packet flag unset
 	{true, []byte{QUICFLAG_FECGROUP | QUICFLAG_ENTROPY, 0x42}, false, true, true, 0x42},
@@ -47,6 +47,7 @@ var tests_quicprivateheader = []testquicprivateheader{
 
 func Test_QuicPrivateHeader_ParseData(t *testing.T) {
 	var priv QuicPrivateHeader
+	var fecgroupnum QuicFecGroupNumberOffset
 
 	for i, v := range tests_quicprivateheader {
 		s, err := priv.ParseData(v.data)
@@ -66,8 +67,13 @@ func Test_QuicPrivateHeader_ParseData(t *testing.T) {
 			if priv.GetEntropyFlag() != v.flagEntropy {
 				t.Errorf("ParseData = invalid Entropy flag in test n°%v with data[%v]%x", i, len(v.data), v.data)
 			}
-			if priv.GetFecGroupNumberOffset() != v.offset {
-				t.Errorf("ParseData = invalid FEC GRoup Offset value in test n°%v with data[%v]%x", i, len(v.data), v.data)
+			if v.flagFecGroup {
+				if fecgroupnum, err = priv.GetFecGroupNumberOffset(); err != nil {
+					t.Errorf("ParseData = error %s in test n°%v with data[%v]%x", err, i, len(v.data), v.data)
+				}
+				if fecgroupnum != v.offset {
+					t.Errorf("ParseData = invalid FEC GRoup Offset value in test n°%v with data[%v]%x", i, len(v.data), v.data)
+				}
 			}
 		} else {
 			if err == nil {

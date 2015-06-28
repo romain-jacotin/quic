@@ -1,5 +1,4 @@
-// crypto package process crypto protocol messages and crypto handshake
-package crypto
+package protocol
 
 import "encoding/binary"
 
@@ -14,15 +13,15 @@ const (
 	sREADVALUES
 )
 
-// Parser is a crypto.Message parser that takes slices of bytes on its input channel and sends out crypto.Message(s) on its output channel.
+// Parser is a Message parser that takes slices of bytes on its input channel and sends out Message(s) on its output channel.
 //
-// It handles the case where a crypto message is on multiple slices of bytes.
+// It handles the case where a message is on multiple slices of bytes.
 //
-// When the Parser encounters a non valid crypto.Message a nil value is sends on its output channel.
+// When the Parser encounters a non valid Message a nil value is sends on its output channel.
 type Parser struct {
 	// input channel containing bytes to parse
 	input chan []byte
-	// output channel for sending parsed crypto.Message
+	// output channel for sending parsed Message
 	output chan *Message
 	// internal Parser state variables that need to be keep when Parser is Start/Stop/Start/ ...
 	state        parserState
@@ -36,7 +35,7 @@ type Parser struct {
 	values       [][]byte
 }
 
-// NewParser is a crypto.Parser factory.
+// NewParser is a Parser factory.
 func NewParser() *Parser {
 	return &Parser{
 		input:        make(chan []byte),
@@ -51,7 +50,7 @@ func (this *Parser) GetInput() chan<- []byte {
 	return this.input
 }
 
-// GetOutput returns the receveive only crypto.Message output channel.
+// GetOutput returns the receveive only Message output channel.
 func (this *Parser) GetOutput() <-chan *Message {
 	return this.output
 }

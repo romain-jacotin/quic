@@ -1,5 +1,7 @@
 package crypto
 
+import "github.com/romain-jacotin/quic/protocol"
+
 // A KeyExchange is a generic way to exchange a shared key between two hosts that own private/public key pairs.
 //
 // Supported Key Exchange algorithm in QUIC Crypto protocol are the following:
@@ -17,11 +19,11 @@ type KeyExchange interface {
 //
 //     TagC255 = Elliptic Curve Diffie-Hellman Curve25519
 //     TagP256 = Elliptic Curve Diffie-Hellman P-256
-func NewKeyExchange(kexs MessageTag) (error, KeyExchange) {
+func NewKeyExchange(kexs protocol.MessageTag) (error, KeyExchange) {
 	switch kexs {
-	case TagC255: // Elliptic Curve Diffie-Hellman Curve25519
+	case protocol.TagC255: // Elliptic Curve Diffie-Hellman Curve25519
 		return NewECDH_Curve25519()
-	case TagP256: // Elliptic Curve Diffie-Hellman P-256
+	case protocol.TagP256: // Elliptic Curve Diffie-Hellman P-256
 		return NewECDH_P256()
 	}
 	return nil, nil

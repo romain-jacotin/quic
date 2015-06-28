@@ -1,4 +1,4 @@
-package crypto
+package protocol
 
 import "testing"
 import "bytes"
@@ -85,32 +85,32 @@ func Test_ContainsTag(t *testing.T) {
 
 	msg := NewMessage(TagREJ)
 	if b, v = msg.ContainsTag(TagCETV); b {
-		t.Error("ContainsTag: tag can't be in the crypto.Message")
+		t.Error("ContainsTag: tag can't be in the Message")
 	}
 	msg = NewMessage(TagSHLO)
 	msg.AddTagValue(TagAEAD, []byte{0, 1})
 	msg.AddTagValue(TagCETV, []byte{2, 3})
 	msg.AddTagValue(TagSCFG, []byte{4, 5})
 	if b, v = msg.ContainsTag(TagKEXS); b {
-		t.Error("ContainsTag: tag can't be in the crypto.Message")
+		t.Error("ContainsTag: tag can't be in the Message")
 	}
 	if v != nil {
-		t.Error("ContainsTag: unknow tag can't have a value in the crypto.Message")
+		t.Error("ContainsTag: unknow tag can't have a value in the Message")
 	}
 	if b, v = msg.ContainsTag(TagAEAD); !b {
-		t.Error("ContainsTag: tag must be in the crypto.Message")
+		t.Error("ContainsTag: tag must be in the Message")
 	}
 	if !bytes.Equal(v, []byte{0, 1}) {
 		t.Error("ContainsTag: invalid associated value for this tag")
 	}
 	if b, v = msg.ContainsTag(TagCETV); !b {
-		t.Error("ContainsTag: tag must be in the crypto.Message")
+		t.Error("ContainsTag: tag must be in the Message")
 	}
 	if !bytes.Equal(v, []byte{2, 3}) {
 		t.Error("ContainsTag: invalid associated value for this tag")
 	}
 	if b, v = msg.ContainsTag(TagSCFG); !b {
-		t.Error("ContainsTag: tag must be in the crypto.Message")
+		t.Error("ContainsTag: tag must be in the Message")
 	}
 	if !bytes.Equal(v, []byte{4, 5}) {
 		t.Error("ContainsTag: invalid associated value for this tag")

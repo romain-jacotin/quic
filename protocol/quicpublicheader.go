@@ -119,6 +119,16 @@ func (this *QuicPublicHeader) ParseData(data []byte) (size int, err error) {
 	// Parse Public reset flag
 	if (pf & QUICFLAG_PUBLICRESET) == QUICFLAG_PUBLICRESET {
 		this.flagPublicReset = true
+		// Check  minimum Public header size for 64-bit Connection ID
+		if l < 9 {
+			err = errors.New("QuicPublicHeader.ParseData : too little data for Public Reset (< 9 bytes)")
+			return
+		}
+		// Parse the 64-bit Connection ID
+		this.connIDByteSize = 8
+		this.connId = QuicConnectionID(binary.LittleEndian.Uint64(data[1:]))
+		size = 9
+		return
 	} else {
 		this.flagPublicReset = false
 	}
@@ -200,6 +210,19 @@ func (this *QuicPublicHeader) GetSerializedSize() (size int) {
 func (this *QuicPublicHeader) GetSerializedData(data []byte) (size int, err error) {
 	var pf byte
 
+	// Serialize Public Reset public header
+	if this.flagPublicReset {
+		if len(data) < 9 {
+			err = errors.New("QuicPublicHeader.GetSerializedData : data size too small to contain Public Reset packet")
+			return
+		}
+		// Serialize Public flags
+		data[0] = QUICFLAG_PUBLICRESET | QUICFLAG_CONNID_64bit
+		// Serialize Connection ID
+		binary.LittleEndian.PutUint64(data[1:], uint64(this.connId))
+		size = 9
+		return
+	}
 	// Check minimum data size
 	s := (1 + this.connIDByteSize + this.seqNumByteSize)
 	if this.flagVersion {
@@ -210,23 +233,20 @@ func (this *QuicPublicHeader) GetSerializedData(data []byte) (size int, err erro
 		return
 	}
 	// Serialized Public flags, Connection ID, Version and Sequence Number
-	if this.flagPublicReset {
-		pf |= 0x02
-	}
 	switch this.connIDByteSize {
 	case 0:
-		pf |= QUICFLAG_CONNID_0bit
+		pf = QUICFLAG_CONNID_0bit
 		break
 	case 1:
-		pf |= QUICFLAG_CONNID_8bit
+		pf = QUICFLAG_CONNID_8bit
 		data[1] = byte(this.connId)
 		break
 	case 4:
-		pf |= QUICFLAG_CONNID_32bit
+		pf = QUICFLAG_CONNID_32bit
 		binary.LittleEndian.PutUint32(data[1:], uint32(this.connId))
 		break
 	case 8:
-		pf |= QUICFLAG_CONNID_64bit
+		pf = QUICFLAG_CONNID_64bit
 		binary.LittleEndian.PutUint64(data[1:], uint64(this.connId))
 		break
 	}

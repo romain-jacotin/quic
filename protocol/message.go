@@ -1,11 +1,11 @@
-package crypto
+package protocol
 
 import "encoding/binary"
 
 // MessageTag is the type definition for message's tag, and tags in tag-value pairs.
 type MessageTag uint32
 
-// MaxNumEntries is the maximum numer of entries supported in a crypto.Message.
+// MaxNumEntries is the maximum numer of entries supported in a Message.
 const MaxMessageTagNumEntries = 128
 
 // QUIC tag values.
@@ -17,6 +17,9 @@ const (
 	TagSHLO = ('S') + ('H' << 8) + ('L' << 16) + ('O' << 24) // Server Hello message tag
 	TagREJ  = ('R') + ('E' << 8) + ('J' << 16) + (0 << 24)   // Server Rejection message tag
 	TagSCUP = ('S') + ('C' << 8) + ('U' << 16) + ('P' << 24) // Server Config Update message tag can be used only after handshake complete
+
+	// Public Reset message tag
+	TagPRST = ('P') + ('R' << 8) + ('S' << 16) + ('T' << 24) // Public Reset message tag
 
 	// Content tags that can be see both on CHLO and REJ
 	TagVERS = ('V') + ('E' << 8) + ('R' << 16) + ('S' << 24) // Version
@@ -75,14 +78,14 @@ const (
 // new Tag = '' + ('' << 8) + ('' << 16) + ('' << 24) //
 )
 
-// A crypto.Message that contains message tag value and associated tag-values pairs.
+// A Message that contains message tag value and associated tag-values pairs.
 type Message struct {
 	msgTag MessageTag
 	tags   []MessageTag
 	values [][]byte
 }
 
-// NewMessage is a crypto.Message factory.
+// NewMessage is a Message factory.
 //
 // Only TagCHLO, TagREJ, TagSHLO and TagSCUP are valids 'messageTag' values.
 //
@@ -91,24 +94,24 @@ type Message struct {
 // NewMessage returns a nil value in case of invalid inputs.
 func NewMessage(messageTag MessageTag) *Message {
 	switch messageTag {
-	case TagCHLO, TagREJ, TagSHLO, TagSCUP:
+	case TagCHLO, TagREJ, TagSHLO, TagSCUP, TagPRST:
 		return &Message{
 			msgTag: messageTag}
 	}
 	return nil
 }
 
-// GetMessageTag return the message tag of the crypto.Message.
+// GetMessageTag return the message tag of the Message.
 func (this *Message) GetMessageTag() MessageTag {
 	return this.msgTag
 }
 
-// IsMessageTag return true if this crypto.Message is of the requested tag type, and return false otherwise.
+// IsMessageTag return true if this Message is of the requested tag type, and return false otherwise.
 func (this *Message) IsMessageTag(tag MessageTag) bool {
 	return this.msgTag == tag
 }
 
-// GetNumEntries return the number of entries in the crypto.Message.
+// GetNumEntries return the number of entries in the Message.
 func (this *Message) GetNumEntries() uint16 {
 	return uint16(len(this.tags))
 }
@@ -123,7 +126,7 @@ func (this *Message) ContainsTag(t MessageTag) (bool, []byte) {
 	return false, nil
 }
 
-// UpdateTagValue tries to overwrite the tag value pair in the crypto.Message and returns true if tag does already present, and false otherwise.
+// UpdateTagValue tries to overwrite the tag value pair in the Message and returns true if tag does already present, and false otherwise.
 func (this *Message) UpdateTagValue(tag MessageTag, value []byte) bool {
 	// Try to overwrite the value if the tag already exist
 	for i, v := range this.tags {
@@ -135,7 +138,7 @@ func (this *Message) UpdateTagValue(tag MessageTag, value []byte) bool {
 	return false
 }
 
-// AddTagValue only adds the tag value pair in the crypto.Message if tag does not already exist, and return false without adding it otherwise.
+// AddTagValue only adds the tag value pair in the Message if tag does not already exist, and return false without adding it otherwise.
 func (this *Message) AddTagValue(tag MessageTag, value []byte) bool {
 	// Verify that tag is not present.
 	if res, _ := this.ContainsTag(tag); res {
@@ -147,7 +150,7 @@ func (this *Message) AddTagValue(tag MessageTag, value []byte) bool {
 	return true
 }
 
-// GetSerializeSize returns the size in byte of the binary version of the crypto.Message.
+// GetSerializeSize returns the size in byte of the binary version of the Message.
 func (this *Message) GetSerializeSize() uint32 {
 	var l uint32
 
@@ -157,7 +160,7 @@ func (this *Message) GetSerializeSize() uint32 {
 	return uint32(len(this.tags))*8 + l + 8
 }
 
-// GetSerialize returns []byte containing the binary serialization of the crypto.Message.
+// GetSerialize returns []byte containing the binary serialization of the Message.
 func (this *Message) GetSerialize() []byte {
 	var offset, endoffset uint32
 
