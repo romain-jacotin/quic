@@ -44,3 +44,14 @@ func (this *QuicFECPacket) GetSerializedData(data []byte) (size int, err error) 
 	size = copy(data, this.redundancy)
 	return
 }
+
+// SetRedundancyData
+func (this *QuicFECPacket) SetRedundancyData(data []byte) {
+	this.redundancy = data
+}
+
+// GetRedundancyData
+func (this *QuicFECPacket) GetRedundancyData() (data []byte) {
+	data = this.redundancy
+	return
+}
