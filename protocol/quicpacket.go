@@ -88,6 +88,16 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 			}
 			size += s
 		} else {
+			if this.publicHeader.GetVersionFlag() {
+				// This is a Version Negotiation packet type
+				this.packetType = QUICPACKETTYPE_VERSION
+			} else if this.privateHeader.GetFecGroupFlag() {
+				// This is a Protected Frame packet type
+				this.packetType = QUICPACKETTYPE_PROTECTEDFRAME
+			} else {
+				// This is a Frame packet type
+				this.packetType = QUICPACKETTYPE_FRAME
+			}
 			// Parse Frames vector
 			i := 0
 			for left := l - size; left > 0; i++ {

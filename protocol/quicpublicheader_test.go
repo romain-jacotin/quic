@@ -167,10 +167,8 @@ func Test_QuicPublicHeader_ParseData(t *testing.T) {
 			if pub.GetSequenceNumber() != v.seqNum {
 				t.Errorf("ParseData = invalid Sequence Number %x in test n°%v with data[%v]%x", pub.GetSequenceNumber(), i, len(v.data), v.data)
 			}
-		} else {
-			if err == nil {
-				t.Errorf("ParseData = missing error in test n°%v with data[%v]%x", i, len(v.data), v.data)
-			}
+		} else if err == nil {
+			t.Errorf("ParseData = missing error in test n°%v with data[%v]%x", i, len(v.data), v.data)
 		}
 		pub.Erase()
 	}

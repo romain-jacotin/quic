@@ -33,10 +33,8 @@ func Test_QuicFecPacket_ParseData(t *testing.T) {
 			if !bytes.Equal(v.data, fec.redundancy) {
 				t.Errorf("QuicFECPacket.ParseData : invalid redundancy data %x in test %x with data[%v]%x", fec.redundancy, i, len(v.data), v.data)
 			}
-		} else {
-			if err == nil {
-				t.Errorf("QuicFECPacket.ParseData : missing error in test %x with data[%v]%x", i, len(v.data), v.data)
-			}
+		} else if err == nil {
+			t.Errorf("QuicFECPacket.ParseData : missing error in test %x with data[%v]%x", i, len(v.data), v.data)
 		}
 	}
 }

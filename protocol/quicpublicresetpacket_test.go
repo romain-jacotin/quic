@@ -144,10 +144,8 @@ func Test_QuicPublicRestPacket_ParseData(t *testing.T) {
 			if v.rejectedseqnum != reset.GetRejectedSequenceNumber() {
 				t.Errorf("QuicPublicRestPacket.ParseData : invalid rejected sequence number %x in test %x with data[%v]%x", reset.GetRejectedSequenceNumber(), i, len(v.data), v.data)
 			}
-		} else {
-			if err == nil {
-				t.Error("QuicPublicRestPacket.ParseData : missing error in test %x with data[%v]%x", i, len(v.data), v.data)
-			}
+		} else if err == nil {
+			t.Error("QuicPublicRestPacket.ParseData : missing error in test %x with data[%v]%x", i, len(v.data), v.data)
 		}
 	}
 }

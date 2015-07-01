@@ -75,10 +75,8 @@ func Test_QuicPrivateHeader_ParseData(t *testing.T) {
 					t.Errorf("ParseData = invalid FEC GRoup Offset value in test n°%v with data[%v]%x", i, len(v.data), v.data)
 				}
 			}
-		} else {
-			if err == nil {
-				t.Errorf("ParseData = missing error in test n°%v with data[%v]%x", i, len(v.data), v.data)
-			}
+		} else if err == nil {
+			t.Errorf("ParseData = missing error in test n°%v with data[%v]%x", i, len(v.data), v.data)
 		}
 		priv.Erase()
 	}

@@ -335,10 +335,8 @@ func Test_QuicPacket_ParseData(t *testing.T) {
 					t.Errorf("QuicPacket.ParseData : invalid FEC Group Number offset %x in test n°%v with data[%v]%x", fgno, i, len(v.data), v.data[:s])
 				}
 			}
-		} else {
-			if err == nil {
-				t.Errorf("QuicPacket.ParseData : missing error in test n°%v with data[%v]%x", i, s, v.data[:s])
-			}
+		} else if err == nil {
+			t.Errorf("QuicPacket.ParseData : missing error in test n°%v with data[%v]%x", i, s, v.data[:s])
 		}
 		packet.Erase()
 	}
@@ -359,15 +357,15 @@ func Test_QuicPacket_SerializeData(t *testing.T) {
 			packet.publicHeader.SetSequenceNumber(v.seqNum)
 			packet.publicHeader.SetConnectionIdSize(parsePublicheaderConnectionIdSize[(v.data[0]>>2)&0x0f])
 			packet.publicHeader.SetSequenceNumberSize(parsePublicheaderSequenceNumberSize[(v.data[0]>>2)&0x0f])
-			// TO DO: setup Private Header
-			// setup Public Reset Packet
-			packet.publicReset.SetNonceProof(v.nonceProof)
-			packet.publicReset.SetRejectedSequenceNumber(v.rejectedseqnum)
-			// setup FEC Packet
+			// setup Private Header
 			packet.privateHeader.SetFecPacketFlag(v.flagFecPacket)
 			packet.privateHeader.SetFecGroupFlag(v.flagFecGroup)
 			packet.privateHeader.SetEntropyFlag(v.flagEntropy)
 			packet.privateHeader.SetFecGroupNumberOffset(v.fecGroupNumberOffset)
+			// setup Public Reset Packet
+			packet.publicReset.SetNonceProof(v.nonceProof)
+			packet.publicReset.SetRejectedSequenceNumber(v.rejectedseqnum)
+			// setup FEC Packet
 			packet.fecPacket.SetRedundancyData(v.fecRedundancy)
 			// TO DO: setup Frame Packet
 			// Get and check the serialized data
