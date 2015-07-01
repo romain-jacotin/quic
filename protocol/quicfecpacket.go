@@ -25,8 +25,13 @@ func (this *QuicFECPacket) Setup(seqnum QuicPacketSequenceNumber, offset QuicFec
 // ParseData
 func (this *QuicFECPacket) ParseData(data []byte) (size int, err error) {
 	// All left data is the redundancy FEC Packet of the associated FEC Group
-	this.redundancy = data
 	size = len(data)
+	if size > 0 {
+		this.redundancy = data
+	} else {
+		size = 0
+		err = errors.New("QuicFECPacket.ParseData : invalid FEC Redundancy data of size = 0")
+	}
 	return
 }
 
@@ -37,6 +42,10 @@ func (this *QuicFECPacket) GetSerializedSize() (size int) {
 
 // GetSerializedData
 func (this *QuicFECPacket) GetSerializedData(data []byte) (size int, err error) {
+	if len(this.redundancy) == 0 {
+		err = errors.New("QuicFECPacket.GetSerializedData : invalid FEC Redundancy data of size = 0")
+		return
+	}
 	if len(data) < len(this.redundancy) {
 		err = errors.New("QuicFECPacket.GetSerializedData : data size too small to contain FEC Packet redundancy")
 		return

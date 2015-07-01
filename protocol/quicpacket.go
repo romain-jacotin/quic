@@ -38,7 +38,11 @@ func (this *QuicPacket) Erase() {
 	this.privateHeader.Erase()
 	this.fecPacket.Erase()
 	this.publicReset.Erase()
+	this.packetType = QUICPACKETTYPE_UNKNOW
 	this.framesSet = nil
+	for i, _ := range this.buffer {
+		this.buffer[i] = 0
+	}
 }
 
 // ParseData
@@ -70,6 +74,8 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 		}
 		size += s
 		if this.privateHeader.GetFecPacketFlag() {
+			// This is a FEC packet type
+			this.packetType = QUICPACKETTYPE_FEC
 			// Setup the FEC Packet based on Sequence Number and FEC Group Offset
 			if fecgroupnum, err = this.privateHeader.GetFecGroupNumberOffset(); err != nil {
 				return
@@ -77,7 +83,7 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 			this.fecPacket.Setup(this.publicHeader.GetSequenceNumber(), fecgroupnum)
 			// Parse Fec redundancy payload
 			if s, err = this.fecPacket.ParseData(data[size:]); err != nil {
-				// Error while parsing QuicPrivateHeader
+				// Error while parsing QuicFECPacket
 				return
 			}
 			size += s
@@ -126,7 +132,7 @@ func (this *QuicPacket) GetSerializedSize() (size int) {
 
 // GetSerializedData
 func (this *QuicPacket) GetSerializedData() (data []byte, err error) {
-	var size int
+	var s, size int
 
 	switch this.packetType {
 	case QUICPACKETTYPE_PUBLICRESET:
@@ -142,10 +148,21 @@ func (this *QuicPacket) GetSerializedData() (data []byte, err error) {
 		data = this.buffer[:size]
 		return
 	case QUICPACKETTYPE_FEC:
-		size = this.publicHeader.GetSerializedSize() + this.publicReset.GetSerializedSize()
+		if size, err = this.publicHeader.GetSerializedData(this.buffer[:]); err != nil {
+			return
+		}
+		if s, err = this.privateHeader.GetSerializedData(this.buffer[size:]); err != nil {
+			return
+		}
+		size += s
+		if s, err = this.fecPacket.GetSerializedData(this.buffer[size:]); err != nil {
+			return
+		}
+		size += s
 		data = this.buffer[:size]
 		return
 	}
+	err = errors.New("QuicPacket.GetSerializedData : can't serialized unknown packet type")
 	return
 }
 
