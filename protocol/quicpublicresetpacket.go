@@ -138,20 +138,6 @@ func (this *QuicPublicResetPacket) GetSerializedSize() (size int) {
 func (this *QuicPublicResetPacket) GetSerializedData(data []byte) (size int, err error) {
 
 	this.msg.msgTag = TagPRST
-	// Add 'RNON' tag/value pair
-	binary.LittleEndian.PutUint64(this.buffer[0:8], uint64(this.nonceProof))
-	if b, _ := this.msg.ContainsTag(TagRNON); b {
-		this.msg.UpdateTagValue(TagRNON, this.buffer[0:8])
-	} else {
-		this.msg.AddTagValue(TagRNON, this.buffer[0:8])
-	}
-	// Add 'RSEQ' tag/value pair
-	binary.LittleEndian.PutUint64(this.buffer[8:16], uint64(this.rejectedSeqNum))
-	if b, _ := this.msg.ContainsTag(TagRSEQ); b {
-		this.msg.UpdateTagValue(TagRSEQ, this.buffer[8:16])
-	} else {
-		this.msg.AddTagValue(TagRSEQ, this.buffer[8:16])
-	}
 	size = int(this.msg.GetSerializeSize())
 	if len(data) < size {
 		err = errors.New("QuicPublicResetPacket.GetSerializedData : data size too small to contain Public Reset packet")
@@ -169,6 +155,13 @@ func (this *QuicPublicResetPacket) GetNonceProof() QuicPublicResetNonceProof {
 // SetNonceProof
 func (this *QuicPublicResetPacket) SetNonceProof(nonce QuicPublicResetNonceProof) {
 	this.nonceProof = nonce
+	// Add 'RNON' tag/value pair
+	binary.LittleEndian.PutUint64(this.buffer[0:8], uint64(this.nonceProof))
+	if b, _ := this.msg.ContainsTag(TagRNON); b {
+		this.msg.UpdateTagValue(TagRNON, this.buffer[0:8])
+	} else {
+		this.msg.AddTagValue(TagRNON, this.buffer[0:8])
+	}
 }
 
 // GetRejectedSequenceNumber
@@ -179,4 +172,11 @@ func (this *QuicPublicResetPacket) GetRejectedSequenceNumber() QuicPacketSequenc
 // SetRejectedSequenceNumber
 func (this *QuicPublicResetPacket) SetRejectedSequenceNumber(seqnum QuicPacketSequenceNumber) {
 	this.rejectedSeqNum = seqnum
+	// Add 'RSEQ' tag/value pair
+	binary.LittleEndian.PutUint64(this.buffer[8:16], uint64(this.rejectedSeqNum))
+	if b, _ := this.msg.ContainsTag(TagRSEQ); b {
+		this.msg.UpdateTagValue(TagRSEQ, this.buffer[8:16])
+	} else {
+		this.msg.AddTagValue(TagRSEQ, this.buffer[8:16])
+	}
 }

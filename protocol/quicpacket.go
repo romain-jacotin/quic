@@ -1,11 +1,24 @@
 package protocol
 
 import "errors"
+import "encoding/binary"
 
 const cFRAMEBUFFERSIZE = 4
 
+const (
+	QUICPACKETTYPE_UNKNOW         = 0
+	QUICPACKETTYPE_PUBLICRESET    = 1
+	QUICPACKETTYPE_VERSION        = 2
+	QUICPACKETTYPE_FEC            = 3
+	QUICPACKETTYPE_FRAME          = 4
+	QUICPACKETTYPE_PROTECTEDFRAME = 5
+)
+
+type QuicPacketType int
+
 // QuicPacket
 type QuicPacket struct {
+	packetType    QuicPacketType
 	publicHeader  QuicPublicHeader
 	privateHeader QuicPrivateHeader
 	// If FEC Packet only
@@ -41,6 +54,8 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 	}
 	size += s
 	if this.publicHeader.GetPublicResetFlag() {
+		// This is a Public Reset packet type
+		this.packetType = QUICPACKETTYPE_PUBLICRESET
 		// Parse PublicResetPacket
 		if s, err = this.publicReset.ParseData(data[size:]); err != nil {
 			// Error while parsing QuiPublicResetPacket
@@ -95,13 +110,51 @@ func (this *QuicPacket) ParseData(data []byte) (size int, err error) {
 
 // GetSerializedSize
 func (this *QuicPacket) GetSerializedSize() (size int) {
-	// NOT YET IMPLEMENTED
+	switch this.packetType {
+	case QUICPACKETTYPE_PUBLICRESET:
+		size = 9 + this.publicReset.GetSerializedSize()
+		return
+	case QUICPACKETTYPE_VERSION, QUICPACKETTYPE_FRAME, QUICPACKETTYPE_PROTECTEDFRAME:
+		size = this.publicHeader.GetSerializedSize() + this.privateHeader.GetSerializedSize() // + this.framesSet.GetSerializedSize()
+		return
+	case QUICPACKETTYPE_FEC:
+		size = this.publicHeader.GetSerializedSize() + this.publicReset.GetSerializedSize()
+		return
+	}
 	return
 }
 
 // GetSerializedData
 func (this *QuicPacket) GetSerializedData() (data []byte, err error) {
-	data = this.buffer[:this.GetSerializedSize()]
-	err = errors.New("NOT YET IMPLEMENTED !")
+	var size int
+
+	switch this.packetType {
+	case QUICPACKETTYPE_PUBLICRESET:
+		// Serialize public flags
+		this.buffer[0] = QUICFLAG_PUBLICRESET | QUICFLAG_CONNID_64bit
+		// Serialize Connection ID (64-bit)
+		binary.LittleEndian.PutUint64(this.buffer[1:], uint64(this.publicHeader.connId))
+		size, err = this.publicReset.GetSerializedData(this.buffer[9:])
+		data = this.buffer[:size+9]
+		return
+	case QUICPACKETTYPE_VERSION, QUICPACKETTYPE_FRAME, QUICPACKETTYPE_PROTECTEDFRAME:
+		size = this.publicHeader.GetSerializedSize() + this.privateHeader.GetSerializedSize() // + this.framesSet.GetSerializedSize()
+		data = this.buffer[:size]
+		return
+	case QUICPACKETTYPE_FEC:
+		size = this.publicHeader.GetSerializedSize() + this.publicReset.GetSerializedSize()
+		data = this.buffer[:size]
+		return
+	}
 	return
+}
+
+// GetPacketType
+func (this *QuicPacket) GetPacketType() (packettype QuicPacketType) {
+	return this.packetType
+}
+
+// SetPacketType
+func (this *QuicPacket) SetPacketType(packettype QuicPacketType) {
+	this.packetType = packettype
 }
