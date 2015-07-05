@@ -4,11 +4,56 @@ import "errors"
 
 /*
 
+Regular Frame flags:
++---+---+---+---+---+---+---+---+
+| 0 | 0 | 0 | 0 | 0 |RegularType|
++---+---+---+---+---+---+---+---+
+
+FLAGS
+
+000  0  PADDING
+001  1  RST_STREAM
+010  2  CONNECTION_CLOSE
+011  3  GOAWAY
+100  4  WINDOW_UPDATE
+101  5  BLOCKED
+110  6  STOP_WAITING
+111  7  PING
+
+-----------------------------------------------------------
+
+ACK Frame flags:
++---+---+---+---+---+---+---+---+
+| 0 | 1 |NAC|TRC|LargLen|MissLen|
++---+---+---+---+---+---+---+---+
+
+FLAGS    Largest      Missing Packet Sequence Number
+         Observed     Delta
+         size         size
+
+00 00    1            1
+00 01    1            2
+00 10    1            4
+00 11    1            6
+01 00    2            1
+01 01    2            2
+01 10    2            4
+01 11    2            6
+10 00    4            1
+10 01    4            2
+10 10    4            4
+10 11    4            6
+11 00    6            1
+11 01    6            2
+11 10    6            4
+11 11    6            6
+
+-----------------------------------------------------------
+
 STREAM Frame flags:
 +---+---+---+---+---+---+---+---+
 | 1 |FIN|Len| Offset Len| Stream|
 +---+---+---+---+---+---+---+---+
-
 
 FLAGS    Byte Offset size  StreamID size
 
@@ -47,6 +92,9 @@ FLAGS    Byte Offset size  StreamID size
 
 */
 
+var parseMissingPacketSequenceNumberDeltaSize = []uint{1, 2, 4, 6, 1, 2, 4, 6, 1, 2, 4, 6, 1, 2, 4, 6}
+var parseLargestObservedSize = []uint{1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6}
+
 var parseStreamIdSize = []uint{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4}
 var parseByteOffsetSize = []uint{0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8}
 
@@ -68,8 +116,11 @@ const (
 	QUICFRAMETYPE_STOP_WAITING             = 0x06
 	QUICFRAMETYPE_PING                     = 0x07
 	// STREAM FRAME mask and flags
-	QUICFLAG_DATALENGTH = 0x20
 	QUICFLAG_FIN        = 0x40
+	QUICFLAG_DATALENGTH = 0x20
+	// ACK FRAME mask and flags
+	QUICFLAG_NACK      = 0x20
+	QUICFLAG_TRUNCATED = 0x10
 )
 
 type QuicFrameType byte
@@ -89,11 +140,23 @@ type QuicFrame struct {
 	frameLength        uint16
 	frameData          []byte
 	// ACK Frame fields: ???
-	receivedEntropy byte
-	largestObserved QuicPacketSequenceNumber
-	numTimestamp    byte
-	numRanges       byte
-	numRevived      byte
+	flagNack                                 bool
+	flagTruncated                            bool
+	entropyHash                              QuicEntropyHash
+	largestObserved                          QuicPacketSequenceNumber
+	largestObservedByteSize                  uint
+	largestObservedDeltaTime                 uint16
+	missingPacketSequenceNumberDeltaByteSize uint
+	numTimestamp                             byte
+	deltaFromLargestObserved                 byte
+	timeSinceLargestObserved                 uint32
+	timestampsDeltaLargest                   [255]byte
+	timestampsTimeSincePrevious              [255]uint16
+	numMissingRanges                         byte
+	missingPacketsSequenceNumberDelta        [255]QuicPacketSequenceNumber
+	missingRangeLength                       [255]byte
+	numRevived                               byte
+	revivedPackets                           [255]QuicPacketSequenceNumber
 	// CONGESTION_FEEDBACK Frame --> (no fields)
 	// PADDING Frame fields --> re-used of 'frameLength'
 	// RST_STREAM Frame fields --> re-used of 'streamID' and 'byteOffset'
@@ -103,8 +166,7 @@ type QuicFrame struct {
 	lastGoodStreamId QuicStreamID
 	// WINDOW_UPDATE Frame fields --> re-used of 'streamID' and 'byteOffset'
 	// BLOCKED Frame fields --> re-used of 'streamID'
-	// STOP_WAITING Frame fields:
-	sentEntropy               byte
+	// STOP_WAITING Frame fields --> re-used of 'entropy'
 	leastUnackedDelta         QuicPacketSequenceNumber
 	leastUnackedDeltaByteSize uint
 	// PING Frame --> (no fields)
@@ -123,10 +185,16 @@ func (this *QuicFrame) Erase() {
 	this.frameLength = 0
 	this.frameData = nil
 	// ACK Frame
-	this.receivedEntropy = 0
+	this.flagNack = false
+	this.flagTruncated = false
+	this.entropyHash = 0
 	this.largestObserved = 0
+	this.largestObservedByteSize = 0
+	this.missingPacketSequenceNumberDeltaByteSize = 0
 	this.numTimestamp = 0
-	this.numRanges = 0
+	this.deltaFromLargestObserved = 0
+	this.timeSinceLargestObserved = 0
+	this.numMissingRanges = 0
 	this.numRevived = 0
 	// CONGESTION_FEEDBACK Frame fields
 	// PADDING Frame fields
@@ -138,7 +206,6 @@ func (this *QuicFrame) Erase() {
 	// WINDOW_UPDATE Frame fields
 	// BLOCKED Frame fields
 	// STOP_WAITING Frame fields
-	this.sentEntropy = 0
 	this.leastUnackedDelta = 0
 	this.leastUnackedDeltaByteSize = 0
 	// PING Frame fields
@@ -160,10 +227,14 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 		// Parse FIN flag
 		if (ft & QUICFLAG_FIN) == QUICFLAG_FIN {
 			this.flagFIN = true
+		} else {
+			this.flagFIN = false
 		}
 		// Parse Data Length flag
 		if (ft & QUICFLAG_DATALENGTH) == QUICFLAG_DATALENGTH {
 			this.flagDataLength = true
+		} else {
+			this.flagDataLength = false
 		}
 		// Parse Byte Offset size flags
 		ft &= 0x1f
@@ -213,7 +284,120 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 	} else if (ft & QUICFRAMETYPE_ACK_MASK) == QUICFRAMETYPE_ACK {
 		// This is an ACK Frame
 		this.frameType = QUICFRAMETYPE_ACK
-		err = errors.New("QuicFrame.ParseData : CONNECTION_CLOSE not yet implemented")
+		// Parse NACK flag
+		if (ft & QUICFLAG_NACK) == QUICFLAG_NACK {
+			this.flagNack = true
+		} else {
+			this.flagNack = false
+		}
+		// Parse TRUNCATED flag
+		if (ft & QUICFLAG_TRUNCATED) == QUICFLAG_TRUNCATED {
+			this.flagNack = true
+		} else {
+			this.flagNack = false
+		}
+		// Parse Largest Observed size flags
+		ft &= 0x1f
+		this.largestObservedByteSize = parseLargestObservedSize[ft]
+		// Parse Missing Packet Sequence Number size flags
+		this.missingPacketSequenceNumberDeltaByteSize = parseMissingPacketSequenceNumberDeltaSize[ft]
+		// Check data length
+		if l < (5 + int(this.largestObservedByteSize)) {
+			err = errors.New("QuicFrame.ParseData : not enough data to parse for ACK frame")
+			return
+		}
+		// Parse Received Entropy
+		this.entropyHash = QuicEntropyHash(data[1])
+		size++
+		// Parse Largest Observed Sequence Number (8-bit to 48-bit)
+		this.largestObserved = 0
+		for i := uint(0); i < this.largestObservedByteSize; i++ {
+			this.largestObserved |= QuicPacketSequenceNumber(data[size]) << (i << 3)
+			size++
+		}
+		// Parse Largest Observed Delta Time (16-bit float)
+		for i := uint(0); i < 2; i++ {
+			this.largestObservedDeltaTime |= uint16(data[size]) << (i << 3)
+			size++
+		}
+		// Parse NumTimestamp
+		this.numTimestamp = data[size]
+		size++
+		if this.numTimestamp > 0 {
+			// Check data length
+			if l < (size + (int(this.numTimestamp) * 3)) {
+				err = errors.New("QuicFrame.ParseData : not enough data to parse for ACK frame")
+				return
+			}
+			// Parse Delta From Largest Observed
+			this.deltaFromLargestObserved = data[size]
+			size++
+			// Parse Time Since Largest Observed
+			this.timeSinceLargestObserved = 0
+			for i := uint(0); i < 4; i++ {
+				this.timeSinceLargestObserved |= uint32(data[size]) << (i << 3)
+				size++
+			}
+			for j := byte(1); j < this.numTimestamp; j++ {
+				// Parse Delta Largest Observed
+				this.timestampsDeltaLargest[j] = data[size]
+				size++
+				// Parse Time Since Previous Timestamp
+				this.timestampsTimeSincePrevious[j] = 0
+				for i := uint(0); i < 2; i++ {
+					this.timestampsTimeSincePrevious[j] |= uint16(data[i]) << (i << 3)
+					size++
+				}
+			}
+		}
+		// Parse Missing Packets and Revived Packets
+		if this.flagNack {
+			// Check data length
+			if l < (size + 2) {
+				err = errors.New("QuicFrame.ParseData : not enough data to parse for ACK frame")
+				return
+			}
+			// Parse Num Missing Packets
+			this.numMissingRanges = data[size]
+			size++
+			if this.numMissingRanges > 0 {
+				// Check data length
+				if l < (1 + size + (int(this.numMissingRanges) * int(1+this.missingPacketSequenceNumberDeltaByteSize))) {
+					err = errors.New("QuicFrame.ParseData : not enough data to parse for ACK frame")
+					return
+				}
+				for j := byte(0); j < this.numMissingRanges; j++ {
+					// Parse Missing Packet Sequence Number Delta
+					this.missingPacketsSequenceNumberDelta[j] = 0
+					for i := uint(0); i < uint(this.missingPacketSequenceNumberDeltaByteSize); i++ {
+						this.missingPacketsSequenceNumberDelta[j] |= QuicPacketSequenceNumber(data[i]) << (i << 3)
+						size++
+					}
+					// Parse Missing Packet Range Length
+					this.missingRangeLength[j] = data[size]
+					size++
+				}
+			}
+			// Parse Num Revived Packets
+			this.numRevived = data[size]
+			size++
+			if this.numRevived > 0 {
+				// Check data length
+				if l < (size + (int(this.numRevived) * int(this.largestObservedByteSize))) {
+					err = errors.New("QuicFrame.ParseData : not enough data to parse for ACK frame")
+					return
+				}
+				// Parse Revived Packets
+				for j := byte(0); j < this.numRevived; j++ {
+					// Parse Revived Packet
+					this.revivedPackets[j] = 0
+					for i := uint(0); i < this.largestObservedByteSize; i++ {
+						this.revivedPackets[j] |= QuicPacketSequenceNumber(data[i]) << (i << 3)
+						size++
+					}
+				}
+			}
+		}
 		return
 	} else if (ft & QUICFRAMETYPE_CONGESTION_FEEDBACK_MASK) == QUICFRAMETYPE_CONGESTION_FEEDBACK {
 		// This is a CONGESTION_FEEDBACK Frame
@@ -349,7 +533,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 				return
 			}
 			// Parse SentEntropy
-			this.sentEntropy = data[size]
+			this.entropyHash = QuicEntropyHash(data[size])
 			size++
 			// Parse Least Unacked Delta (8-bit to 48-bit)
 			this.leastUnackedDelta = 0
@@ -371,20 +555,34 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 func (this *QuicFrame) GetSerializedSize() (size int) {
 	switch this.frameType {
 	case QUICFRAMETYPE_STREAM: // variable length
+		size = 1 + int(this.streamIdByteSize) + int(this.byteOffsetByteSize) + int(this.frameLength)
+		if this.flagDataLength {
+			size += 2
+		}
 		return
 	case QUICFRAMETYPE_ACK: // variable length
+		size = 5 + int(this.largestObservedByteSize) +
+			int(this.numTimestamp*3) +
+			int(this.numMissingRanges)*int(this.missingPacketSequenceNumberDeltaByteSize+1) +
+			int(this.numRevived)*int(this.largestObservedByteSize)
+		if this.numTimestamp > 0 {
+			size += 2
+		}
 		return
 	case QUICFRAMETYPE_CONGESTION_FEEDBACK: // unknow length ...
+		size = 1
 		return
 	case QUICFRAMETYPE_PADDING: // variable length
-		size = int(this.frameLength)
+		size = int(1 + this.frameLength)
 		return
 	case QUICFRAMETYPE_RST_STREAM: // fix length (17 bytes)
 		size = 17
 		return
 	case QUICFRAMETYPE_CONNECTION_CLOSE: // variable length
+		size = 7 + int(this.frameLength)
 		return
 	case QUICFRAMETYPE_GOAWAY: // variable length
+		size = int(11 + this.frameLength)
 		return
 	case QUICFRAMETYPE_WINDOW_UPDATE: // fix length (13 bytes)
 		size = 13
@@ -404,116 +602,283 @@ func (this *QuicFrame) GetSerializedSize() (size int) {
 
 // GetSerializedData
 func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
+	l := len(data)
 	switch this.frameType {
 	case QUICFRAMETYPE_STREAM: // variable length
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_STREAM
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_ACK: // variable length
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_ACK
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_CONGESTION_FEEDBACK: // unknow length ...
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_CONGESTION_FEEDBACK
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_PADDING: // variable length
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_PADDING
-		// Serialize padding length of zeros
-		size = int(this.frameLength)
-		for i := range data[:size] {
-			data[i] = 0
+		// Check data length
+		size = 1 + int(this.streamIdByteSize) + int(this.byteOffsetByteSize) + int(this.frameLength)
+		if this.flagDataLength {
+			size += 2
 		}
-		return
-	case QUICFRAMETYPE_RST_STREAM: // fix length (17 bytes)
-		if len(data) < 17 {
-			err = errors.New("QuicFrame.GetSerializedData : data size too small to contain RST_STREAM Frame (<17)")
+		if l < size {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for STOP_WAITING Frame size")
+			size = 0
 			return
 		}
 		// Serialize frame type
-		data[0] = QUICFRAMETYPE_RST_STREAM
-		// Serialize Stream ID
+		data[0] = QUICFRAMETYPE_STREAM
 		size = 1
-		this.streamId = 0
-		for i := uint(0); i < 4; i++ {
-			this.streamId |= QuicStreamID(data[size]) << (i << 3)
+		// Serialize StreamId (8-bit to 32-bit)
+		for i := uint(0); i < this.streamIdByteSize; i++ {
+			data[size] = byte(this.streamId >> (i << 3))
 			size++
 		}
-		// Serialize Byte offset
-		this.byteOffset = 0
+		// Serialize Byte Offset (0-bit to 64-bit)
+		for i := uint(0); i < this.byteOffsetByteSize; i++ {
+			data[size] = byte(this.byteOffset >> (i << 3))
+			size++
+		}
+		if this.flagDataLength {
+			// Serialize Data Length
+			for i := uint(0); i < 2; i++ {
+				data[size] = byte(this.frameLength >> (i << 3))
+				size++
+			}
+		}
+		// Serialize Stream Data
+		for i := uint16(0); i < this.frameLength; i++ {
+			data[size] = this.frameData[i]
+			size++
+		}
+		return
+	case QUICFRAMETYPE_ACK: // variable length
+		// Check data length
+		size = 5 + int(this.largestObservedByteSize) +
+			int(this.numTimestamp*3) +
+			int(this.numMissingRanges)*int(this.missingPacketSequenceNumberDeltaByteSize+1) +
+			int(this.numRevived)*int(this.largestObservedByteSize)
+		if this.numTimestamp > 0 {
+			size += 2
+		}
+		if l < size {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for ACK Frame size")
+			size = 0
+			return
+		}
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_ACK
+		// Serialize Received Entropy (8-bit)
+		data[1] = byte(this.entropyHash)
+		// Serialize Largest Observed (8-bit to 48-bit)
+		size = 2
+		for i := uint(0); i < this.largestObservedByteSize; i++ {
+			data[size] = byte(this.largestObserved >> (i << 3))
+			size++
+		}
+		// Serialize Delta Observed Delta Time (16-bit float)
+		for i := uint(0); i < 2; i++ {
+			data[size] = byte(this.largestObservedDeltaTime >> (i << 3))
+			size++
+		}
+		// Serialize Number of Timestamps (8-bit)
+		data[size] = this.numTimestamp
+		size++
+		if this.numTimestamp > 0 {
+			// Serialize Delta Largest Observed (8-bit)
+			data[size] = this.deltaFromLargestObserved
+			size++
+			// Serialize Time Since Largest Observed (32-bit)
+			for i := uint(0); i < 4; i++ {
+				data[size] = byte(this.timeSinceLargestObserved >> (i << 3))
+				size++
+			}
+			// Serialize Timestamps
+			for j := byte(1); j < this.numTimestamp; j++ {
+				// Serialize Delta Largest Observed
+				data[size] = this.timestampsDeltaLargest[j]
+				size++
+				// Serialize Time Since Previous Timestamp
+				for i := uint(0); i < 2; i++ {
+					data[size] = byte(this.timestampsTimeSincePrevious[j] >> (i << 3))
+					size++
+				}
+			}
+		}
+		if this.flagNack {
+			// Serialize Number of Missing Packets
+			data[size] = this.numMissingRanges
+			size++
+			// Serialize Missing Packets
+			if this.numMissingRanges > 0 {
+				for j := byte(0); j < this.numMissingRanges; j++ {
+					// Serialize Missing Packet Sequence Number Delta
+					for i := uint(0); i < this.missingPacketSequenceNumberDeltaByteSize; i++ {
+						data[size] = byte(this.missingPacketsSequenceNumberDelta[j] >> (i << 3))
+						size++
+					}
+					// Serialize Missing Packets Range Length
+					data[size] = this.missingRangeLength[j]
+					size++
+				}
+			}
+			// Serialize Number of Revived Packets
+			data[size] = this.numRevived
+			size++
+			// Serialize Revived Packets
+			if this.numRevived > 0 {
+				for j := byte(0); j < this.numRevived; j++ {
+					// Serialize Revived Packet Sequence Number
+					for i := uint(0); i < this.largestObservedByteSize; i++ {
+						data[size] = byte(this.revivedPackets[j] >> (i << 3))
+						size++
+					}
+				}
+			}
+		}
+		return
+	case QUICFRAMETYPE_PADDING: // variable length
+		// Check data length
+		if l < int(1+this.frameLength) {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for PADDING Frame size")
+			return
+		}
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_PADDING
+		// Serialize padding length of zeros
+		size = int(this.frameLength)
+		for i := 1; i <= size; size++ {
+			data[size] = 0
+		}
+		return
+	case QUICFRAMETYPE_RST_STREAM: // fix length (17 bytes)
+		// Check data length
+		if l < 17 {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for RST_STREAM Frame size (<17)")
+			return
+		}
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_RST_STREAM
+		// Serialize Stream ID (32-bit)
+		size = 1
+		for i := uint(0); i < 4; i++ {
+			data[size] = byte(this.streamId >> (i << 3))
+			size++
+		}
+		// Serialize Byte offset (64-bit)
 		for i := uint(0); i < 8; i++ {
-			this.byteOffset |= QuicByteOffset(data[size]) << (i << 3)
+			data[size] = byte(this.byteOffset >> (i << 3))
 			size++
 		}
-		// Serialize Error code
-		this.errorCode = 0
+		// Serialize Error code (32-bit)
 		for i := uint(0); i < 4; i++ {
-			this.errorCode |= QuicErrorCode(data[size]) << (i << 3)
+			data[size] = byte(this.errorCode >> (i << 3))
 			size++
 		}
 		return
 	case QUICFRAMETYPE_CONNECTION_CLOSE: // variable length
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_CONNECTION_CLOSE
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_GOAWAY: // variable length
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_GOAWAY
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_WINDOW_UPDATE: // fix length (13 bytes)
-		if len(data) < 13 {
-			err = errors.New("QuicFrame.GetSerializedData : data size too small to contain WINDOW_UPDATE Frame (<13)")
+		// Check data length
+		if l < int(7+this.frameLength) {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for CONNECTION_CLOSE Frame size")
 			return
 		}
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_WINDOW_UPDATE
-		// Serialize Stream ID
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_CONNECTION_CLOSE
 		size = 1
-		this.streamId = 0
+		// Serialize Error Code (32-bit)
 		for i := uint(0); i < 4; i++ {
-			this.streamId |= QuicStreamID(data[size]) << (i << 3)
+			data[size] = byte(this.errorCode >> (i << 3))
 			size++
 		}
-		// Serialize Byte offset
-		this.byteOffset = 0
+		// Serialize Reason Phrase length (16-bit)
+		for i := uint(0); i < 2; i++ {
+			data[size] = byte(this.frameLength >> (i << 3))
+			size++
+		}
+		// Serialize Reason Phrase (variable length)
+		for i := uint16(0); i < this.frameLength; i++ {
+			data[size] = this.frameData[i]
+			size++
+		}
+		return
+	case QUICFRAMETYPE_GOAWAY: // variable length
+		// Check data length
+		if l < int(11+this.frameLength) {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for GOAWAY Frame size")
+			return
+		}
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_GOAWAY
+		size = 1
+		// Serialize Error Code (32-bit)
+		for i := uint(0); i < 4; i++ {
+			data[size] = byte(this.errorCode >> (i << 3))
+			size++
+		}
+		// Serialize Last Good Stream ID (32-bit)
+		for i := uint(0); i < 4; i++ {
+			data[size] = byte(this.streamId >> (i << 3))
+			size++
+		}
+		// Serialize Reason Phrase length (16-bit)
+		for i := uint(0); i < 2; i++ {
+			data[size] = byte(this.frameLength >> (i << 3))
+			size++
+		}
+		// Serialize Reason Phrase (variable length)
+		for i := uint16(0); i < this.frameLength; i++ {
+			data[size] = this.frameData[i]
+			size++
+		}
+		return
+	case QUICFRAMETYPE_WINDOW_UPDATE: // fix length (13 bytes)
+		// Check data length
+		if len(data) < 13 {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for WINDOW_UPDATE Frame size (<13)")
+			return
+		}
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_WINDOW_UPDATE
+		// Serialize Stream ID (32-bit)
+		size = 1
+		for i := uint(0); i < 4; i++ {
+			data[size] = byte(this.streamId >> (i << 3))
+			size++
+		}
+		// Serialize Byte offset (64-bit)
 		for i := uint(0); i < 8; i++ {
-			this.byteOffset |= QuicByteOffset(data[size]) << (i << 3)
+			data[size] = byte(this.byteOffset >> (i << 3))
 			size++
 		}
 		return
 	case QUICFRAMETYPE_BLOCKED: // fix length (5 bytes)
-		if len(data) < 5 {
-			err = errors.New("QuicFrame.GetSerializedData : data size too small to contain BLOCKED Frame (<5)")
+		// Check data length
+		if l < 5 {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for BLOCKED Frame size (<5)")
 			return
 		}
-		// Serialize frame type
+		// Serialize frame type (8-bit)
 		data[0] = QUICFRAMETYPE_BLOCKED
-		// Serialize Stream ID
+		// Serialize Stream ID (32-bit)
 		size = 1
-		this.streamId = 0
 		for i := uint(0); i < 4; i++ {
-			this.streamId |= QuicStreamID(data[size]) << (i << 3)
+			data[size] = byte(this.streamId >> (i << 3))
 			size++
 		}
 		return
 	case QUICFRAMETYPE_STOP_WAITING: // 3 <= variable length <= 8
-		// Serialize frame type
-		data[0] = QUICFRAMETYPE_STOP_WAITING
-		err = errors.New("NOT YET IMPLEMENTED !")
-		return
-	case QUICFRAMETYPE_PING: // fix length (1 byte)
-		// Check minimum data size
-		if len(data) < 1 {
-			err = errors.New("QuicFrame.GetSerializedData : data size too small to contain PING Frame (<1)")
+		// Check data length
+		if l < int(2+this.leastUnackedDeltaByteSize) {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for STOP_WAITING Frame size")
 			return
 		}
-		// Serialized frame type
+		// Serialize frame type (8-bit)
+		data[0] = QUICFRAMETYPE_STOP_WAITING
+		// Serialize Sent Entropy (8-bit)
+		data[1] = byte(this.entropyHash)
+		// Serialize Least Unacked Delta (8-bit to 48 bit)
+		size = 2
+		for i := uint(0); i < this.leastUnackedDeltaByteSize; i++ {
+			data[size] = byte(this.leastUnackedDelta >> (i << 3))
+			size++
+		}
+		return
+	case QUICFRAMETYPE_PING: // fix length (1 byte)
+		// Check data length
+		if l < 1 {
+			err = errors.New("QuicFrame.GetSerializedData : not enough data for PING Frame size (<1)")
+			return
+		}
+		// Serialized frame type (8-bit)
 		data[0] = QUICFRAMETYPE_PING
 		size = 1
 		return
