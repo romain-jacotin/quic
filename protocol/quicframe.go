@@ -116,11 +116,34 @@ const (
 	QUICFRAMETYPE_STOP_WAITING             = 0x06
 	QUICFRAMETYPE_PING                     = 0x07
 	// STREAM FRAME mask and flags
-	QUICFLAG_FIN        = 0x40
-	QUICFLAG_DATALENGTH = 0x20
+	QUICFLAG_FIN              = 0x40
+	QUICFLAG_DATALENGTH       = 0x20
+	QUICMASK_BYTEOFFSET_SIZE  = 0x1c
+	QUICFLAG_BYTEOFFSET_64bit = 0x1c
+	QUICFLAG_BYTEOFFSET_56bit = 0x18
+	QUICFLAG_BYTEOFFSET_48bit = 0x14
+	QUICFLAG_BYTEOFFSET_40bit = 0x10
+	QUICFLAG_BYTEOFFSET_32bit = 0x0c
+	QUICFLAG_BYTEOFFSET_24bit = 0x08
+	QUICFLAG_BYTEOFFSET_16bit = 0x04
+	QUICMASK_STREAMID_SIZE    = 0x03
+	QUICFLAG_STREAMID_32bit   = 0x03
+	QUICFLAG_STREAMID_24bit   = 0x02
+	QUICFLAG_STREAMID_16bit   = 0x01
+	QUICFLAG_STREAMID_8bit    = 0x00
 	// ACK FRAME mask and flags
-	QUICFLAG_NACK      = 0x20
-	QUICFLAG_TRUNCATED = 0x10
+	QUICFLAG_NACK                           = 0x20
+	QUICFLAG_TRUNCATED                      = 0x10
+	QUICMASK_LARGESTOBSERVED_SIZE           = 0x0c
+	QUICFLAG_LARGESTOBSERVED_48bit          = 0x0c
+	QUICFLAG_LARGESTOBSERVED_32bit          = 0x08
+	QUICFLAG_LARGESTOBSERVED_16bit          = 0x04
+	QUICFLAG_LARGESTOBSERVED_8bit           = 0x00
+	QUICMASK_MISSINGPACKETSEQNUMDELTA_SIZE  = 0x03
+	QUICFLAG_MISSINGPACKETSEQNUMDELTA_48bit = 0x03
+	QUICFLAG_MISSINGPACKETSEQNUMDELTA_32bit = 0x02
+	QUICFLAG_MISSINGPACKETSEQNUMDELTA_16bit = 0x01
+	QUICFLAG_MISSINGPACKETSEQNUMDELTA_8bit  = 0x00
 )
 
 type QuicFrameType byte
@@ -150,7 +173,7 @@ type QuicFrame struct {
 	numTimestamp                             byte
 	deltaFromLargestObserved                 byte
 	timeSinceLargestObserved                 uint32
-	timestampsDeltaLargest                   [255]byte
+	timestampsDeltaLargestObserved           [255]byte
 	timestampsTimeSincePrevious              [255]uint16
 	numMissingRanges                         byte
 	missingPacketsSequenceNumberDelta        [255]QuicPacketSequenceNumber
@@ -162,8 +185,7 @@ type QuicFrame struct {
 	// RST_STREAM Frame fields --> re-used of 'streamID' and 'byteOffset'
 	errorCode QuicErrorCode
 	// CONNECTION_CLOSE Frame fields --> re-used of 'errorCode', 'frameLength' and 'frameData'
-	// GOAWAY Frame fields --> re-used of 'errorCode', 'frameLength' and 'frameData'
-	lastGoodStreamId QuicStreamID
+	// GOAWAY Frame fields --> re-used of 'errorCode', 'streamId', frameLength' and 'frameData'
 	// WINDOW_UPDATE Frame fields --> re-used of 'streamID' and 'byteOffset'
 	// BLOCKED Frame fields --> re-used of 'streamID'
 	// STOP_WAITING Frame fields --> re-used of 'entropy'
@@ -202,7 +224,6 @@ func (this *QuicFrame) Erase() {
 	this.errorCode = 0
 	// CONNECTION_CLOSE Frame fields
 	// GOAWAY Frame fields
-	this.lastGoodStreamId = 0
 	// WINDOW_UPDATE Frame fields
 	// BLOCKED Frame fields
 	// STOP_WAITING Frame fields
@@ -240,7 +261,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 		ft &= 0x1f
 		this.byteOffsetByteSize = parseByteOffsetSize[ft]
 		// Parse Stream ID size flags
-		this.byteOffsetByteSize = parseStreamIdSize[ft]
+		this.streamIdByteSize = parseStreamIdSize[ft]
 		// Check data length
 		if this.flagDataLength {
 			if l < int(3+this.streamIdByteSize+this.byteOffsetByteSize) {
@@ -292,9 +313,9 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 		}
 		// Parse TRUNCATED flag
 		if (ft & QUICFLAG_TRUNCATED) == QUICFLAG_TRUNCATED {
-			this.flagNack = true
+			this.flagTruncated = true
 		} else {
-			this.flagNack = false
+			this.flagTruncated = false
 		}
 		// Parse Largest Observed size flags
 		ft &= 0x1f
@@ -340,7 +361,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 			}
 			for j := byte(1); j < this.numTimestamp; j++ {
 				// Parse Delta Largest Observed
-				this.timestampsDeltaLargest[j] = data[size]
+				this.timestampsDeltaLargestObserved[j] = data[size]
 				size++
 				// Parse Time Since Previous Timestamp
 				this.timestampsTimeSincePrevious[j] = 0
@@ -399,11 +420,6 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 			}
 		}
 		return
-	} else if (ft & QUICFRAMETYPE_CONGESTION_FEEDBACK_MASK) == QUICFRAMETYPE_CONGESTION_FEEDBACK {
-		// This is a CONGESTION_FEEDBACK Frame
-		this.frameType = QUICFRAMETYPE_CONGESTION_FEEDBACK
-		err = errors.New("QuicFrame.ParseData : unknown CONGESTION_FEEDBACK frame type")
-		return
 	} else {
 		switch ft {
 		case 0x00: // PADDING Frame
@@ -446,11 +462,9 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 				size++
 			}
 			// Parse Reason phrase Length (16-bit)
-			if this.flagDataLength {
-				for i := uint(0); i < 2; i++ {
-					this.frameLength |= uint16(data[size]) << (i << 3)
-					size++
-				}
+			for i := uint(0); i < 2; i++ {
+				this.frameLength |= uint16(data[size]) << (i << 3)
+				size++
 			}
 			// Check data length
 			if l < (size + int(this.frameLength)) {
@@ -470,17 +484,15 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 				size++
 			}
 			// Parse Last Good StreamId (32-bit)
-			this.lastGoodStreamId = 0
+			this.streamId = 0
 			for i := uint(0); i < 4; i++ {
-				this.lastGoodStreamId |= QuicStreamID(data[size]) << (i << 3)
+				this.streamId |= QuicStreamID(data[size]) << (i << 3)
 				size++
 			}
 			// Parse Reason phrase Length (16-bit)
-			if this.flagDataLength {
-				for i := uint(0); i < 2; i++ {
-					this.frameLength |= uint16(data[size]) << (i << 3)
-					size++
-				}
+			for i := uint(0); i < 2; i++ {
+				this.frameLength |= uint16(data[size]) << (i << 3)
+				size++
 			}
 			// Check data length
 			if l < (size + int(this.frameLength)) {
@@ -603,7 +615,8 @@ func (this *QuicFrame) GetSerializedSize() (size int) {
 // GetSerializedData
 func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
 	l := len(data)
-	switch this.frameType {
+	ft := this.frameType
+	switch ft {
 	case QUICFRAMETYPE_STREAM: // variable length
 		// Check data length
 		size = 1 + int(this.streamIdByteSize) + int(this.byteOffsetByteSize) + int(this.frameLength)
@@ -616,7 +629,50 @@ func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
 			return
 		}
 		// Serialize frame type
-		data[0] = QUICFRAMETYPE_STREAM
+		if this.flagFIN {
+			ft |= QUICFLAG_FIN
+		}
+		if this.flagDataLength {
+			ft |= QUICFLAG_DATALENGTH
+		}
+		switch this.streamIdByteSize {
+		case 1:
+			ft |= QUICFLAG_STREAMID_8bit
+			break
+		case 2:
+			ft |= QUICFLAG_STREAMID_16bit
+			break
+		case 3:
+			ft |= QUICFLAG_STREAMID_24bit
+			break
+		case 4:
+			ft |= QUICFLAG_STREAMID_32bit
+			break
+		}
+		switch this.byteOffsetByteSize {
+		case 2:
+			ft |= QUICFLAG_BYTEOFFSET_16bit
+			break
+		case 3:
+			ft |= QUICFLAG_BYTEOFFSET_24bit
+			break
+		case 4:
+			ft |= QUICFLAG_BYTEOFFSET_32bit
+			break
+		case 5:
+			ft |= QUICFLAG_BYTEOFFSET_40bit
+			break
+		case 6:
+			ft |= QUICFLAG_BYTEOFFSET_48bit
+			break
+		case 7:
+			ft |= QUICFLAG_BYTEOFFSET_56bit
+			break
+		case 8:
+			ft |= QUICFLAG_BYTEOFFSET_64bit
+			break
+		}
+		data[0] = byte(ft)
 		size = 1
 		// Serialize StreamId (8-bit to 32-bit)
 		for i := uint(0); i < this.streamIdByteSize; i++ {
@@ -656,7 +712,41 @@ func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
 			return
 		}
 		// Serialize frame type (8-bit)
-		data[0] = QUICFRAMETYPE_ACK
+		if this.flagNack {
+			ft |= QUICFLAG_NACK
+		}
+		if this.flagTruncated {
+			ft |= QUICFLAG_TRUNCATED
+		}
+		switch this.largestObservedByteSize {
+		case 1:
+			ft |= QUICFLAG_LARGESTOBSERVED_8bit
+			break
+		case 2:
+			ft |= QUICFLAG_LARGESTOBSERVED_16bit
+			break
+		case 4:
+			ft |= QUICFLAG_LARGESTOBSERVED_32bit
+			break
+		case 6:
+			ft |= QUICFLAG_LARGESTOBSERVED_48bit
+			break
+		}
+		switch this.missingPacketSequenceNumberDeltaByteSize {
+		case 1:
+			ft |= QUICFLAG_MISSINGPACKETSEQNUMDELTA_8bit
+			break
+		case 2:
+			ft |= QUICFLAG_MISSINGPACKETSEQNUMDELTA_16bit
+			break
+		case 4:
+			ft |= QUICFLAG_MISSINGPACKETSEQNUMDELTA_32bit
+			break
+		case 6:
+			ft |= QUICFLAG_MISSINGPACKETSEQNUMDELTA_48bit
+			break
+		}
+		data[0] = byte(ft)
 		// Serialize Received Entropy (8-bit)
 		data[1] = byte(this.entropyHash)
 		// Serialize Largest Observed (8-bit to 48-bit)
@@ -685,7 +775,7 @@ func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
 			// Serialize Timestamps
 			for j := byte(1); j < this.numTimestamp; j++ {
 				// Serialize Delta Largest Observed
-				data[size] = this.timestampsDeltaLargest[j]
+				data[size] = this.timestampsDeltaLargestObserved[j]
 				size++
 				// Serialize Time Since Previous Timestamp
 				for i := uint(0); i < 2; i++ {
@@ -736,9 +826,10 @@ func (this *QuicFrame) GetSerializedData(data []byte) (size int, err error) {
 		data[0] = QUICFRAMETYPE_PADDING
 		// Serialize padding length of zeros
 		size = int(this.frameLength)
-		for i := 1; i <= size; size++ {
-			data[size] = 0
+		for i := 1; i <= size; i++ {
+			data[i] = 0
 		}
+		size++
 		return
 	case QUICFRAMETYPE_RST_STREAM: // fix length (17 bytes)
 		// Check data length
