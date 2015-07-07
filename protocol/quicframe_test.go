@@ -37,7 +37,7 @@ var tests_quicframe = []testquicframe{
 			frameLength: 3,
 		}},
 	// PING Frame
-	{true, 0,
+	{true, 0, // TEST 4
 		[]byte{QUICFRAMETYPE_PING},
 		QuicFrame{
 			frameType: QUICFRAMETYPE_PING,
@@ -63,7 +63,7 @@ var tests_quicframe = []testquicframe{
 			streamId:   0x78563412,
 			byteOffset: 0xddccbbaa0d0c0b0a,
 		}},
-	{true, 0,
+	{true, 0, // TEST 8
 		[]byte{QUICFRAMETYPE_WINDOW_UPDATE, 0x12, 0x34, 0x56, 0x78, 0x0a, 0x0b, 0x0c, 0x0d, 0xaa, 0xbb, 0xcc, 0xdd},
 		QuicFrame{
 			frameType:  QUICFRAMETYPE_WINDOW_UPDATE,
@@ -96,7 +96,7 @@ var tests_quicframe = []testquicframe{
 			frameLength: 1,
 			frameData:   []byte{0x1a},
 		}},
-	{true, 0,
+	{true, 0, // TEST 12
 		[]byte{QUICFRAMETYPE_CONNECTION_CLOSE, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00},
 		QuicFrame{
 			frameType:   QUICFRAMETYPE_CONNECTION_CLOSE,
@@ -138,7 +138,7 @@ var tests_quicframe = []testquicframe{
 			frameLength: 0,
 			frameData:   nil,
 		}},
-	{true, 0,
+	{true, 0, // TEST 17
 		[]byte{QUICFRAMETYPE_GOAWAY, 0x11, 0x22, 0x33, 0x44, 0x12, 0x34, 0x56, 0x78, 0x00, 0x00},
 		QuicFrame{
 			frameType:   QUICFRAMETYPE_GOAWAY,
@@ -182,33 +182,37 @@ var tests_quicframe = []testquicframe{
 			entropyHash:       0x42,
 			leastUnackedDelta: 0x0000000000000001,
 		}},
-	{true, 1,
+	{true, 1, // TEST 22
 		[]byte{QUICFRAMETYPE_STOP_WAITING, 0x42, 0x01},
 		QuicFrame{
-			frameType:         QUICFRAMETYPE_STOP_WAITING,
-			entropyHash:       0x42,
-			leastUnackedDelta: 0x0000000000000001,
+			frameType:                 QUICFRAMETYPE_STOP_WAITING,
+			entropyHash:               0x42,
+			leastUnackedDeltaByteSize: 1,
+			leastUnackedDelta:         0x0000000000000001,
 		}},
 	{true, 2,
 		[]byte{QUICFRAMETYPE_STOP_WAITING, 0x42, 0x01, 0x02},
 		QuicFrame{
-			frameType:         QUICFRAMETYPE_STOP_WAITING,
-			entropyHash:       0x42,
-			leastUnackedDelta: 0x0000000000000201,
+			frameType:                 QUICFRAMETYPE_STOP_WAITING,
+			entropyHash:               0x42,
+			leastUnackedDeltaByteSize: 2,
+			leastUnackedDelta:         0x0000000000000201,
 		}},
 	{true, 4,
 		[]byte{QUICFRAMETYPE_STOP_WAITING, 0x42, 0x01, 0x02, 0x03, 0x04},
 		QuicFrame{
-			frameType:         QUICFRAMETYPE_STOP_WAITING,
-			entropyHash:       0x42,
-			leastUnackedDelta: 0x0000000004030201,
+			frameType:                 QUICFRAMETYPE_STOP_WAITING,
+			entropyHash:               0x42,
+			leastUnackedDeltaByteSize: 4,
+			leastUnackedDelta:         0x0000000004030201,
 		}},
 	{true, 6,
 		[]byte{QUICFRAMETYPE_STOP_WAITING, 0x42, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
 		QuicFrame{
-			frameType:         QUICFRAMETYPE_STOP_WAITING,
-			entropyHash:       0x42,
-			leastUnackedDelta: 0x0000060504030201,
+			frameType:                 QUICFRAMETYPE_STOP_WAITING,
+			entropyHash:               0x42,
+			leastUnackedDeltaByteSize: 6,
+			leastUnackedDelta:         0x0000060504030201,
 		}},
 	// STREAM Frame
 	{true, 0,
@@ -468,7 +472,7 @@ var tests_quicframe = []testquicframe{
 			timeSinceLargestObserved:                 0x0d0c0b0a,
 			missingPacketSequenceNumberDeltaByteSize: 2,
 		}},
-	{true, 0,
+	{true, 0, // TEST 43
 		[]byte{QUICFRAMETYPE_ACK | QUICFLAG_LARGESTOBSERVED_48bit | QUICFLAG_MISSINGPACKETSEQNUMDELTA_16bit,
 			0x42,
 			0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
@@ -888,8 +892,14 @@ func Test_QuicFrame_ParseData(t *testing.T) {
 			if v.frame.frameType != f.frameType {
 				t.Errorf("QuicFrame.ParseData : invalid Frame Type %x in test %v with data[%v]%x", f.frameType, i, len(v.data), v.data)
 			}
+			if v.frame.streamIdByteSize != f.streamIdByteSize {
+				t.Errorf("QuicFrame.ParseData : invalid Stream ID Byte size %v in test %v with data[%v]%x", f.streamIdByteSize, i, len(v.data), v.data)
+			}
 			if v.frame.streamId != f.streamId {
 				t.Errorf("QuicFrame.ParseData : invalid Stream ID %x in test %v with data[%v]%x", f.streamId, i, len(v.data), v.data)
+			}
+			if v.frame.byteOffsetByteSize != f.byteOffsetByteSize {
+				t.Errorf("QuicFrame.ParseData : invalid Byte Offset size value %v in test %v with data[%v]%x", f.byteOffsetByteSize, i, len(v.data), v.data)
 			}
 			if v.frame.byteOffset != f.byteOffset {
 				t.Errorf("QuicFrame.ParseData : invalid Byte Offset value %x in test %v with data[%v]%x", f.byteOffset, i, len(v.data), v.data)
@@ -906,11 +916,64 @@ func Test_QuicFrame_ParseData(t *testing.T) {
 			if v.frame.entropyHash != f.entropyHash {
 				t.Errorf("QuicFrame.ParseData : invalid Entropy Hash %x in test %v with data[%v]%x", f.entropyHash, i, len(v.data), v.data)
 			}
+			if v.frame.leastUnackedDeltaByteSize != f.leastUnackedDeltaByteSize {
+				t.Errorf("QuicFrame.ParseData : invalid Least Unacket Delta Byte Size %v in test %v with data[%v]%x", f.leastUnackedDeltaByteSize, i, len(v.data), v.data)
+			}
 			if v.frame.leastUnackedDelta != f.leastUnackedDelta {
 				t.Errorf("QuicFrame.ParseData : invalid Least Unacket Delta %x in test %v with data[%v]%x", f.leastUnackedDelta, i, len(v.data), v.data)
 			}
 			if v.frame.flagDataLength != f.flagDataLength {
 				t.Errorf("QuicFrame.ParseData : invalid Data Length flag value %v in test %v with data[%v]%x", f.flagDataLength, i, len(v.data), v.data)
+			}
+			if v.frame.flagFIN != f.flagFIN {
+				t.Errorf("QuicFrame.ParseData : invalid FIN flag value %v in test %v with data[%v]%x", f.flagFIN, i, len(v.data), v.data)
+			}
+			if v.frame.flagNack != f.flagNack {
+				t.Errorf("QuicFrame.ParseData : invalid NACK flag value %v in test %v with data[%v]%x", f.flagNack, i, len(v.data), v.data)
+			}
+			if v.frame.flagTruncated != f.flagTruncated {
+				t.Errorf("QuicFrame.ParseData : invalid TRUNCATED flag value %v in test %v with data[%v]%x", f.flagTruncated, i, len(v.data), v.data)
+			}
+			if v.frame.largestObservedByteSize != f.largestObservedByteSize {
+				t.Errorf("QuicFrame.ParseData : invalid Largest Observed size %v in test %v with data[%v]%x", f.largestObservedByteSize, i, len(v.data), v.data)
+			}
+			if v.frame.largestObserved != f.largestObserved {
+				t.Errorf("QuicFrame.ParseData : invalid Largest Observed Sequence Number %x in test %v with data[%v]%x", f.largestObserved, i, len(v.data), v.data)
+			}
+			if v.frame.numTimestamp != f.numTimestamp {
+				t.Errorf("QuicFrame.ParseData : invalid Number of Timestamp %v in test %v with data[%v]%x", f.numTimestamp, i, len(v.data), v.data)
+			}
+			if v.frame.timeSinceLargestObserved != f.timeSinceLargestObserved {
+				t.Errorf("QuicFrame.ParseData : invalid Time Since Largest Observed %x in test %v with data[%v]%x", f.timeSinceLargestObserved, i, len(v.data), v.data)
+			}
+			if v.frame.deltaFromLargestObserved != f.deltaFromLargestObserved {
+				t.Errorf("QuicFrame.ParseData : invalid Delta from Largest Observed %x in test %v with data[%v]%x", f.deltaFromLargestObserved, i, len(v.data), v.data)
+			}
+			if v.frame.missingPacketSequenceNumberDeltaByteSize != f.missingPacketSequenceNumberDeltaByteSize {
+				t.Errorf("QuicFrame.ParseData : invalid Missing Packet Sequence Number Delta size %v in test %v with data[%v]%x", f.missingPacketSequenceNumberDeltaByteSize, i, len(v.data), v.data)
+			}
+			for j := range v.frame.timestampsDeltaLargestObserved {
+				if v.frame.timestampsDeltaLargestObserved[j] != f.timestampsDeltaLargestObserved[j] {
+					t.Errorf("QuicFrame.ParseData : invalid Timestamp Delta Largest Observed [%v]%x in test %v with data[%v]%x", j, f.timestampsDeltaLargestObserved[j], i, len(v.data), v.data)
+				}
+				if v.frame.timestampsTimeSincePrevious[j] != f.timestampsTimeSincePrevious[j] {
+					t.Errorf("QuicFrame.ParseData : invalid Timestamp Time Since Previous [%v]%x in test %v with data[%v]%x", j, f.timestampsTimeSincePrevious[j], i, len(v.data), v.data)
+				}
+				if v.frame.missingPacketsSequenceNumberDelta[j] != f.missingPacketsSequenceNumberDelta[j] {
+					t.Errorf("QuicFrame.ParseData : invalid Missing Packet Sequence Number Delta [%v]%x in test %v with data[%v]%x", j, f.missingPacketsSequenceNumberDelta[j], i, len(v.data), v.data)
+				}
+				if v.frame.missingRangeLength[j] != f.missingRangeLength[j] {
+					t.Errorf("QuicFrame.ParseData : invalid Missing Range Length [%v]%x in test %v with data[%v]%x", j, f.missingRangeLength[j], i, len(v.data), v.data)
+				}
+				if v.frame.revivedPackets[j] != f.revivedPackets[j] {
+					t.Errorf("QuicFrame.ParseData : invalid Revived Packet [%v]%x in test %v with data[%v]%x", j, f.revivedPackets[j], i, len(v.data), v.data)
+				}
+			}
+			if v.frame.numMissingRanges != f.numMissingRanges {
+				t.Errorf("QuicFrame.ParseData : invalid Number of Missing Ranges %v in test %v with data[%v]%x", f.numMissingRanges, i, len(v.data), v.data)
+			}
+			if v.frame.numRevived != f.numRevived {
+				t.Errorf("QuicFrame.ParseData : invalid Number of Revived Packets %v in test %v with data[%v]%x", f.numRevived, i, len(v.data), v.data)
 			}
 		} else if err == nil {
 			t.Errorf("QuicFrame.ParseData : missing error in test %v with data[%v]%x", i, len(v.data), v.data)

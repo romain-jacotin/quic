@@ -218,6 +218,13 @@ func (this *QuicFrame) Erase() {
 	this.timeSinceLargestObserved = 0
 	this.numMissingRanges = 0
 	this.numRevived = 0
+	for i := range this.timestampsTimeSincePrevious {
+		this.timestampsTimeSincePrevious[i] = 0
+		this.timestampsDeltaLargestObserved[i] = 0
+		this.missingPacketsSequenceNumberDelta[i] = 0
+		this.missingRangeLength[i] = 0
+		this.revivedPackets[i] = 0
+	}
 	// CONGESTION_FEEDBACK Frame fields
 	// PADDING Frame fields
 	// RST_STREAM Frame fields
@@ -366,7 +373,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 				// Parse Time Since Previous Timestamp
 				this.timestampsTimeSincePrevious[j] = 0
 				for i := uint(0); i < 2; i++ {
-					this.timestampsTimeSincePrevious[j] |= uint16(data[i]) << (i << 3)
+					this.timestampsTimeSincePrevious[j] |= uint16(data[size]) << (i << 3)
 					size++
 				}
 			}
@@ -391,7 +398,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 					// Parse Missing Packet Sequence Number Delta
 					this.missingPacketsSequenceNumberDelta[j] = 0
 					for i := uint(0); i < uint(this.missingPacketSequenceNumberDeltaByteSize); i++ {
-						this.missingPacketsSequenceNumberDelta[j] |= QuicPacketSequenceNumber(data[i]) << (i << 3)
+						this.missingPacketsSequenceNumberDelta[j] |= QuicPacketSequenceNumber(data[size]) << (i << 3)
 						size++
 					}
 					// Parse Missing Packet Range Length
@@ -413,7 +420,7 @@ func (this *QuicFrame) ParseData(data []byte) (size int, err error) {
 					// Parse Revived Packet
 					this.revivedPackets[j] = 0
 					for i := uint(0); i < this.largestObservedByteSize; i++ {
-						this.revivedPackets[j] |= QuicPacketSequenceNumber(data[i]) << (i << 3)
+						this.revivedPackets[j] |= QuicPacketSequenceNumber(data[size]) << (i << 3)
 						size++
 					}
 				}
